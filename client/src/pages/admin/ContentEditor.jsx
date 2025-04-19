@@ -1,7 +1,7 @@
 // frontend/src/pages/admin/ContentEditor.jsx
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import axios from 'axios';
+import contentService from '../../services/content.service';
 
 const ContentEditor = () => {
   const { user } = useAuth();
@@ -27,14 +27,14 @@ const ContentEditor = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      const response = await axios.get('/api/content');
+
+      const response = await contentService.getAllContent();
       setContent(response.data);
-      
+
       if (!activeSection && Object.keys(response.data).length > 0) {
         setActiveSection(Object.keys(response.data)[0]);
       }
-      
+
       setLoading(false);
     } catch (err) {
       console.error('Error fetching content:', err);
@@ -60,28 +60,24 @@ const ContentEditor = () => {
   const handleUpdateContent = async () => {
     try {
       setLoading(true);
-      
+
       if (editingContent.type === 'image' && typeof editingContent.value === 'object') {
         // Handle image upload
         const formData = new FormData();
         formData.append('image', editingContent.value);
-        
-        await axios.put(`/api/content/${editingContent.id}/image`, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
-        });
+
+        await contentService.uploadContentImage(editingContent.id, formData);
       } else {
         // Handle text content update
-        await axios.put(`/api/content/${editingContent.id}`, {
+        await contentService.updateContent(editingContent.id, {
           value: editingContent.value
         });
       }
-      
+
       // Show success message
       setSuccessMessage('Content updated successfully');
       setTimeout(() => setSuccessMessage(''), 3000);
-      
+
       // Reset state and fetch updated content
       setEditingContent(null);
       fetchContent();
@@ -110,7 +106,7 @@ const ContentEditor = () => {
 
   const handleNewContentChange = (e) => {
     const { name, value, type, files } = e.target;
-    
+
     if (type === 'file') {
       setNewContent({
         ...newContent,
@@ -127,39 +123,35 @@ const ContentEditor = () => {
 
   const handleAddContent = async (e) => {
     e.preventDefault();
-    
+
     try {
       setLoading(true);
-      
+
       if (newContent.type === 'image' && typeof newContent.value === 'object') {
         // This is a multi-step process for image content
         // 1. Create the content item first
-        const response = await axios.post('/api/content', {
+        const response = await contentService.addContent({
           section: newContent.section,
           key: newContent.key,
           value: '', // Temporary empty value
           type: 'image'
         });
-        
+
         // 2. Then upload the image
         const contentId = response.data.id;
         const formData = new FormData();
         formData.append('image', newContent.value);
-        
-        await axios.put(`/api/content/${contentId}/image`, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
-        });
+
+        await contentService.uploadContentImage(contentId, formData);
       } else {
         // Regular text content
-        await axios.post('/api/content', newContent);
+        await contentService.addContent(newContent);
       }
-      
+
       // Show success message
       setSuccessMessage('Content added successfully');
       setTimeout(() => setSuccessMessage(''), 3000);
-      
+
       // Reset form and fetch updated content
       setNewContent({
         section: '',
@@ -179,16 +171,16 @@ const ContentEditor = () => {
     if (!window.confirm('Are you sure you want to delete this content?')) {
       return;
     }
-    
+
     try {
       setLoading(true);
-      
-      await axios.delete(`/api/content/${id}`);
-      
+
+      await contentService.deleteContent(id);
+
       // Show success message
       setSuccessMessage('Content deleted successfully');
       setTimeout(() => setSuccessMessage(''), 3000);
-      
+
       // Fetch updated content
       fetchContent();
     } catch (err) {

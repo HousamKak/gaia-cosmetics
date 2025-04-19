@@ -10,6 +10,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon
 } from '@heroicons/react/24/outline';
+import productService from '../../services/product.service';
 
 const ProductManager = () => {
   const [products, setProducts] = useState([]);
@@ -46,65 +47,24 @@ const ProductManager = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      // In a real app, this would be an API call
-      // For now, we'll simulate with sample data
-      
-      // Simulate a delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Sample product data with pagination
-      const sampleCategories = ['Makeup', 'Skincare', 'Fragrance', 'Eyes', 'Lips', 'Face'];
-      
-      // Filter and search products
-      let filteredProducts = [
-        { id: 1, name: 'Plush Warm Beige Lipstick', price: 499, originalPrice: 999, category: 'Lips', inventory: 'in-stock' },
-        { id: 2, name: 'Silk Foundation Medium', price: 799, originalPrice: 1299, category: 'Face', inventory: 'in-stock' },
-        { id: 3, name: 'Rose Gold Highlighter', price: 599, originalPrice: 899, category: 'Face', inventory: 'in-stock' },
-        { id: 4, name: 'Velvet Matte Eyeliner', price: 349, originalPrice: 499, category: 'Eyes', inventory: 'low-stock' },
-        { id: 5, name: 'Dewy Setting Spray', price: 449, originalPrice: 699, category: 'Face', inventory: 'in-stock' },
-        { id: 6, name: 'Glossy Lip Oil', price: 399, originalPrice: 599, category: 'Lips', inventory: 'in-stock' },
-        { id: 7, name: 'Creamy Concealer', price: 449, originalPrice: 699, category: 'Face', inventory: 'in-stock' },
-        { id: 8, name: 'Volume Mascara', price: 399, originalPrice: 599, category: 'Eyes', inventory: 'in-stock' },
-        { id: 9, name: 'Hydrating Face Mist', price: 349, originalPrice: 499, category: 'Skincare', inventory: 'in-stock' },
-        { id: 10, name: 'Rose Quartz Face Roller', price: 799, originalPrice: 1299, category: 'Skincare', inventory: 'in-stock' },
-        { id: 11, name: 'Citrus Blossom Perfume', price: 1299, originalPrice: 1999, category: 'Fragrance', inventory: 'in-stock' },
-        { id: 12, name: 'Velvet Brow Pencil', price: 299, originalPrice: 449, category: 'Eyes', inventory: 'out-of-stock' }
-      ];
-      
-      if (search) {
-        filteredProducts = filteredProducts.filter(product => 
-          product.name.toLowerCase().includes(search.toLowerCase())
-        );
-      }
-      
-      if (category) {
-        filteredProducts = filteredProducts.filter(product => 
-          product.category === category
-        );
-      }
-      
-      // Paginate
-      const totalItems = filteredProducts.length;
-      const totalPages = Math.ceil(totalItems / pagination.perPage);
-      const startIndex = (pagination.currentPage - 1) * pagination.perPage;
-      const endIndex = startIndex + pagination.perPage;
-      const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
-      
-      // Add images
-      const productsWithImages = paginatedProducts.map(product => ({
-        ...product,
-        image: `/images/product-${product.id}.jpg`
-      }));
-      
-      setProducts(productsWithImages);
-      setCategories(sampleCategories);
-      setPagination({
-        ...pagination,
-        totalPages,
-        totalItems
+
+      // Real API call with pagination
+      const response = await productService.getProducts({
+        page: pagination.currentPage,
+        limit: pagination.perPage,
+        category: category,
+        search: search
       });
-      
+
+      if (response.data) {
+        setProducts(response.data.products);
+        setPagination({
+          ...pagination,
+          totalPages: response.data.pagination.totalPages,
+          totalItems: response.data.pagination.totalItems
+        });
+      }
+
       setLoading(false);
     } catch (err) {
       console.error('Error fetching products:', err);
@@ -139,27 +99,24 @@ const ProductManager = () => {
 
   const handleAddProduct = async (e) => {
     e.preventDefault();
-    
+
     try {
       setSubmitting(true);
-      
+
       // Validate required fields
       if (!newProduct.name || !newProduct.category || !newProduct.price) {
         setError('Name, category, and price are required');
         setSubmitting(false);
         return;
       }
-      
-      // In a real app, this would be an API call
-      // For now, we'll simulate success
-      
-      // Simulate a delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
+      // Create product using service
+      const response = await productService.createProduct(newProduct);
+
       // Show success message
       setSuccessMessage('Product added successfully');
       setTimeout(() => setSuccessMessage(''), 3000);
-      
+
       // Reset form and close modal
       setNewProduct({
         name: '',
@@ -172,7 +129,7 @@ const ProductManager = () => {
       });
       setIsAddModalOpen(false);
       setSubmitting(false);
-      
+
       // Refresh products list
       fetchProducts();
     } catch (err) {
@@ -186,20 +143,17 @@ const ProductManager = () => {
     if (!window.confirm('Are you sure you want to delete this product?')) {
       return;
     }
-    
+
     try {
       setLoading(true);
-      
-      // In a real app, this would be an API call
-      // For now, we'll simulate success
-      
-      // Simulate a delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
+
+      // Delete product using service
+      await productService.deleteProduct(id);
+
       // Show success message
       setSuccessMessage('Product deleted successfully');
       setTimeout(() => setSuccessMessage(''), 3000);
-      
+
       // Refresh products list
       fetchProducts();
     } catch (err) {
@@ -228,7 +182,7 @@ const ProductManager = () => {
           </div>
         </div>
       </div>
-      
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
         {/* Success message */}
         {successMessage && (
@@ -236,7 +190,7 @@ const ProductManager = () => {
             {successMessage}
           </div>
         )}
-        
+
         {/* Error message */}
         {error && (
           <div className="mt-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
@@ -252,7 +206,7 @@ const ProductManager = () => {
             </button>
           </div>
         )}
-        
+
         {/* Filters and search */}
         <div className="mt-6 bg-white shadow px-4 py-5 sm:rounded-lg sm:p-6">
           <div className="md:flex md:items-center md:justify-between">
@@ -278,7 +232,7 @@ const ProductManager = () => {
                 </select>
               </div>
             </div>
-            
+
             {/* Search */}
             <div className="mt-4 md:mt-0">
               <form onSubmit={handleSearch} className="flex rounded-md shadow-sm">
@@ -301,7 +255,7 @@ const ProductManager = () => {
             </div>
           </div>
         </div>
-        
+
         {/* Products table */}
         <div className="mt-6 bg-white shadow overflow-hidden sm:rounded-md">
           {loading && products.length === 0 ? (
@@ -431,7 +385,7 @@ const ProductManager = () => {
               </tbody>
             </table>
           )}
-          
+
           {/* Pagination */}
           {pagination.totalPages > 1 && (
             <div className="bg-white px-4 py-3 flex items-center justify-between sm:px-6">
@@ -484,12 +438,12 @@ const ProductManager = () => {
                       <span className="sr-only">Previous</span>
                       <ChevronLeftIcon className="h-5 w-5" aria-hidden="true" />
                     </button>
-                    
+
                     {/* Page numbers */}
                     {[...Array(pagination.totalPages)].map((_, i) => {
                       const pageNumber = i + 1;
                       const isCurrentPage = pageNumber === pagination.currentPage;
-                      
+
                       // Show only current page, first, last, and pages around current
                       if (
                         pageNumber === 1 ||
@@ -510,7 +464,7 @@ const ProductManager = () => {
                           </button>
                         );
                       }
-                      
+
                       // Show ellipsis for skipped pages
                       if (
                         (pageNumber === 2 && pagination.currentPage > 3) ||
@@ -525,10 +479,10 @@ const ProductManager = () => {
                           </span>
                         );
                       }
-                      
+
                       return null;
                     })}
-                    
+
                     <button
                       onClick={() => handlePageChange(pagination.currentPage + 1)}
                       disabled={pagination.currentPage === pagination.totalPages}
@@ -548,7 +502,7 @@ const ProductManager = () => {
           )}
         </div>
       </div>
-      
+
       {/* Add Product Modal */}
       {isAddModalOpen && (
         <div className="fixed z-10 inset-0 overflow-y-auto">
@@ -556,15 +510,15 @@ const ProductManager = () => {
             <div className="fixed inset-0 transition-opacity" aria-hidden="true">
               <div className="absolute inset-0 bg-neutral-500 opacity-75"></div>
             </div>
-            
+
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            
+
             <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
                   <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
                     <h3 className="text-lg leading-6 font-medium text-neutral-900">Add New Product</h3>
-                    
+
                     <form onSubmit={handleAddProduct} className="mt-6">
                       <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
                         {/* Product Name */}
@@ -584,7 +538,7 @@ const ProductManager = () => {
                             />
                           </div>
                         </div>
-                        
+
                         {/* Category */}
                         <div className="sm:col-span-3">
                           <label htmlFor="newCategory" className="block text-sm font-medium text-neutral-700">
@@ -608,7 +562,7 @@ const ProductManager = () => {
                             </select>
                           </div>
                         </div>
-                        
+
                         {/* Price */}
                         <div className="sm:col-span-3">
                           <label htmlFor="price" className="block text-sm font-medium text-neutral-700">
@@ -627,7 +581,7 @@ const ProductManager = () => {
                             />
                           </div>
                         </div>
-                        
+
                         {/* Original Price */}
                         <div className="sm:col-span-3">
                           <label htmlFor="originalPrice" className="block text-sm font-medium text-neutral-700">
@@ -645,7 +599,7 @@ const ProductManager = () => {
                             />
                           </div>
                         </div>
-                        
+
                         {/* Discount Percentage */}
                         <div className="sm:col-span-3">
                           <label htmlFor="discountPercentage" className="block text-sm font-medium text-neutral-700">
@@ -664,7 +618,7 @@ const ProductManager = () => {
                             />
                           </div>
                         </div>
-                        
+
                         {/* Inventory Status */}
                         <div className="sm:col-span-6">
                           <label htmlFor="inventoryStatus" className="block text-sm font-medium text-neutral-700">
@@ -684,7 +638,7 @@ const ProductManager = () => {
                             </select>
                           </div>
                         </div>
-                        
+
                         {/* Description */}
                         <div className="sm:col-span-6">
                           <label htmlFor="description" className="block text-sm font-medium text-neutral-700">
@@ -702,7 +656,7 @@ const ProductManager = () => {
                           </div>
                         </div>
                       </div>
-                      
+
                       <div className="mt-6 sm:flex sm:flex-row-reverse">
                         <button
                           type="submit"

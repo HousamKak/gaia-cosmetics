@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
+import orderService from '../services/order.service';
 import { 
   UserIcon, 
   ShoppingBagIcon, 
@@ -29,42 +30,20 @@ const Account = () => {
   useEffect(() => {
     const fetchUserData = async () => {
       if (!user) return;
-      
+
       try {
         setLoading(true);
         setError(null);
-        
-        // In a real app, this would be an API call
-        // For now, we'll simulate with sample data
-        
-        // Simulate a delay
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        // Mock orders data
-        const mockOrders = [
-          { 
-            id: 'ORD-123456', 
-            date: '2023-04-15', 
-            status: 'Delivered', 
-            total: 1299,
-            items: [
-              { name: 'Plush Warm Beige Lipstick', quantity: 1, price: 499 },
-              { name: 'Silk Foundation Medium', quantity: 1, price: 799 }
-            ]
-          },
-          { 
-            id: 'ORD-123457', 
-            date: '2023-03-20', 
-            status: 'Delivered', 
-            total: 998,
-            items: [
-              { name: 'Rose Gold Highlighter', quantity: 1, price: 599 },
-              { name: 'Velvet Matte Eyeliner', quantity: 1, price: 399 }
-            ]
-          }
-        ];
-        
-        setOrders(mockOrders);
+
+        // Fetch real orders from API
+        const ordersResponse = await orderService.getUserOrders();
+
+        if (ordersResponse.data && ordersResponse.data.orders) {
+          setOrders(ordersResponse.data.orders);
+        } else {
+          setOrders([]);
+        }
+
         setLoading(false);
       } catch (err) {
         console.error('Error fetching user data:', err);
@@ -72,7 +51,7 @@ const Account = () => {
         setLoading(false);
       }
     };
-    
+
     fetchUserData();
   }, [user]);
 

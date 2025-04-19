@@ -118,7 +118,7 @@ const ProductListing = () => {
       
       try {
         let response;
-        
+
         if (categoryId) {
           // If we have a valid category ID, use the category products endpoint
           response = await categoryService.getCategoryProducts(categoryId, params);
@@ -127,25 +127,16 @@ const ProductListing = () => {
           params.category = category;
           response = await productService.getProducts(params);
         }
-        
+
         if (response.data && response.data.products) {
           productsData = response.data.products;
+        } else {
+          productsData = [];
         }
       } catch (err) {
         console.error('Error fetching products:', err);
-        // If API fails, try general product search
-        try {
-          const response = await productService.getProducts({ 
-            category: category,
-            ...params
-          });
-          
-          if (response.data && response.data.products) {
-            productsData = response.data.products;
-          }
-        } catch (innerErr) {
-          console.error('Error with fallback product fetch:', innerErr);
-        }
+        setError('Failed to load products. Please try again.');
+        productsData = [];
       }
       
       setProducts(productsData);

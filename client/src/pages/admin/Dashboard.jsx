@@ -9,6 +9,9 @@ import {
   ChartBarIcon,
   PlusIcon
 } from '@heroicons/react/24/outline';
+import productService from '../../services/product.service';
+import orderService from '../../services/order.service';
+import userService from '../../services/user.service';
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState({
@@ -26,35 +29,42 @@ const AdminDashboard = () => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        
-        // In a real app, these would be API calls
-        // For now, we'll simulate with sample data
-        
-        // Simulate a delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Sample dashboard data
+
+        // Get product count
+        const productsResponse = await productService.getProducts({ limit: 1 });
+        const totalProducts = productsResponse.data?.pagination?.totalItems || 0;
+
+        // Get order stats
+        const orderStatsResponse = await orderService.getOrderStats();
+        const totalOrders = orderStatsResponse.data?.totals?.orders || 0;
+        const totalRevenue = orderStatsResponse.data?.totals?.revenue || 0;
+
+        // Get users count (admin only)
+        const usersResponse = await userService.getAllUsers();
+        const totalUsers = usersResponse.data?.length || 0;
+
         setStats({
-          totalProducts: 48,
-          totalUsers: 156,
-          totalOrders: 32,
-          totalRevenue: 21450
+          totalProducts,
+          totalUsers,
+          totalOrders,
+          totalRevenue
         });
-        
-        setRecentProducts([
-          { id: 1, name: 'Plush Warm Beige Lipstick', price: 499, category: 'Lipstick', createdAt: '2023-04-15' },
-          { id: 2, name: 'Silk Foundation Medium', price: 799, category: 'Face', createdAt: '2023-04-14' },
-          { id: 3, name: 'Rose Gold Highlighter', price: 599, category: 'Face', createdAt: '2023-04-12' },
-          { id: 4, name: 'Velvet Matte Eyeliner', price: 349, category: 'Eyes', createdAt: '2023-04-10' }
-        ]);
-        
-        setRecentOrders([
-          { id: 'ORD-1001', customer: 'Sophia Miller', total: 1498, status: 'Delivered', createdAt: '2023-04-15' },
-          { id: 'ORD-1002', customer: 'Robert Johnson', total: 2499, status: 'Processing', createdAt: '2023-04-14' },
-          { id: 'ORD-1003', customer: 'Emma Davis', total: 899, status: 'Delivered', createdAt: '2023-04-13' },
-          { id: 'ORD-1004', customer: 'James Wilson', total: 1250, status: 'Shipped', createdAt: '2023-04-12' }
-        ]);
-        
+
+        // Get recent products
+        const recentProductsResponse = await productService.getProducts({ 
+          limit: 4,
+          sort: 'newest'
+        });
+
+        setRecentProducts(recentProductsResponse.data?.products || []);
+
+        // Get recent orders
+        const recentOrdersResponse = await orderService.getAllOrders({
+          limit: 4
+        });
+
+        setRecentOrders(recentOrdersResponse.data?.orders || []);
+
         setLoading(false);
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
@@ -62,7 +72,7 @@ const AdminDashboard = () => {
         setLoading(false);
       }
     };
-    
+
     fetchDashboardData();
   }, []);
 

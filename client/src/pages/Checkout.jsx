@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
+import orderService from '../services/order.service';
 import { 
   CreditCardIcon, 
   BanknotesIcon, 
@@ -148,24 +149,47 @@ const Checkout = () => {
 
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
-    
+
     if (validatePaymentForm()) {
       try {
         setLoading(true);
-        
-        // In a real app, this would be an API call to create the order
-        // For now, we'll simulate a successful order
-        
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
+
+        // Prepare order data
+        const orderData = {
+          items: cartItems,
+          subtotal,
+          discount,
+          shippingCost,
+          total,
+          shippingAddress: formData, // Contains address info
+          billingAddress: formData, // Same as shipping for now
+          paymentMethod: formData.paymentMethod
+        };
+
+        // Use order service to create order
+        let response;
+        if (user) {
+          // Logged in user
+          response = await orderService.createOrder(orderData);
+        } else {
+          // Guest checkout
+          const userInfo = {
+            email: formData.email,
+            name: formData.fullName
+          };
+          response = await orderService.guestCheckout({
+            ...orderData,
+            userInfo
+          });
+        }
+
         // Generate a random order ID
-        const generatedOrderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
-        
+        const generatedOrderId = response.data.orderNumber || 'ORD-' + Math.floor(100000 + Math.random() * 900000);
+
         setOrderId(generatedOrderId);
         setOrderComplete(true);
         clearCart();
-        
+
         setLoading(false);
       } catch (err) {
         console.error('Error placing order:', err);

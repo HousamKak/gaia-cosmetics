@@ -16,26 +16,27 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Password validation
     if (password !== confirmPassword) {
       return setError('Passwords do not match');
     }
-    
+
     if (password.length < 6) {
       return setError('Password must be at least 6 characters');
     }
-    
+
     try {
       setError('');
       setLoading(true);
-      
+
       // Call the register API
-      const response = await authService.register({ name, email, password });
-      
+      const userData = { name, email, password };
+      const response = await authService.register(userData);
+
       // Update auth context with the user data
       login(response);
-      
+
       // Navigate to home page
       navigate('/');
     } catch (err) {
