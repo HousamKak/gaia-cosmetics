@@ -1,0 +1,48 @@
+// backend/server.js
+const dotenv = require('dotenv');
+const path = require('path');
+const app = require('./src/app');
+
+// Load environment variables
+dotenv.config();
+
+// Import routes
+const authRoutes = require('./src/routes/auth.routes');
+const productRoutes = require('./src/routes/product.routes');
+const userRoutes = require('./src/routes/user.routes');
+const contentRoutes = require('./src/routes/content.routes');
+const categoryRoutes = require('./src/routes/category.routes');
+const orderRoutes = require('./src/routes/order.routes');
+
+// Set port
+const PORT = process.env.PORT || 5000;
+
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// API routes
+app.use('/api/auth', authRoutes);
+app.use('/api/products', productRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/content', contentRoutes);
+app.use('/api/categories', categoryRoutes);
+app.use('/api/orders', orderRoutes);
+
+// Root route for API check
+app.get('/api', (req, res) => {
+  res.json({ message: 'Welcome to GAIA Cosmetics API' });
+});
+
+// Handle production - serve frontend
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../frontend/dist')));
+  
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
+  });
+}
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});

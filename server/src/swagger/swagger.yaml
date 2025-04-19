@@ -1,0 +1,2340 @@
+openapi: 3.0.0
+info:
+  title: GAIA Cosmetics API
+  description: Backend API for GAIA Cosmetics E-commerce Website
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@gaiacosmetics.com
+
+servers:
+  - url: http://localhost:5000
+    description: Development server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [customer, admin]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        category:
+          type: string
+        price:
+          type: number
+          format: float
+        original_price:
+          type: number
+          format: float
+          nullable: true
+        discount_percentage:
+          type: integer
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        ingredients:
+          type: string
+          nullable: true
+        how_to_use:
+          type: string
+          nullable: true
+        inventory_status:
+          type: string
+          enum: [in-stock, low-stock, out-of-stock]
+        inventory_message:
+          type: string
+          nullable: true
+        images:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              imagePath:
+                type: string
+              isPrimary:
+                type: boolean
+        colors:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              name:
+                type: string
+              value:
+                type: string
+    
+    ProductImage:
+      type: object
+      properties:
+        id:
+          type: integer
+        product_id:
+          type: integer
+        image_path:
+          type: string
+        is_primary:
+          type: boolean
+    
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        image_path:
+          type: string
+          nullable: true
+        product_count:
+          type: integer
+    
+    Content:
+      type: object
+      properties:
+        id:
+          type: integer
+        section:
+          type: string
+        key:
+          type: string
+        value:
+          type: string
+          nullable: true
+        type:
+          type: string
+          enum: [text, image, html, video]
+        updated_at:
+          type: string
+          format: date-time
+    
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+        orderNumber:
+          type: string
+        user_id:
+          type: integer
+          nullable: true
+        guest_email:
+          type: string
+          nullable: true
+        guest_name:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, processing, shipped, delivered, cancelled]
+        subtotal:
+          type: number
+          format: float
+        discount:
+          type: number
+          format: float
+        shipping_cost:
+          type: number
+          format: float
+        total:
+          type: number
+          format: float
+        shipping_address:
+          type: object
+        billing_address:
+          type: object
+        payment_method:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+    
+    OrderItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        order_id:
+          type: integer
+        product_id:
+          type: integer
+        product_name:
+          type: string
+        quantity:
+          type: integer
+        price:
+          type: number
+          format: float
+        color:
+          type: string
+          nullable: true
+        image:
+          type: string
+          nullable: true
+    
+    Address:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        name:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        postal_code:
+          type: string
+        country:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        is_default:
+          type: boolean
+    
+    PaymentMethod:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        card_type:
+          type: string
+        last_four:
+          type: string
+        expiry_month:
+          type: string
+        expiry_year:
+          type: string
+        is_default:
+          type: boolean
+
+security:
+  - bearerAuth: []
+
+paths:
+  # AUTH ROUTES
+  /api/auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+                - password
+              properties:
+                name:
+                  type: string
+                  example: John Doe
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+                password:
+                  type: string
+                  format: password
+                  example: SecurePassword123
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+                  email:
+                    type: string
+                  role:
+                    type: string
+                  token:
+                    type: string
+        '400':
+          description: Invalid input or email already in use
+        '500':
+          description: Server error
+
+  /api/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login a user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+                password:
+                  type: string
+                  format: password
+                  example: SecurePassword123
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  name:
+                    type: string
+                  email:
+                    type: string
+                  role:
+                    type: string
+                  token:
+                    type: string
+        '401':
+          description: Invalid email or password
+        '500':
+          description: Server error
+
+  /api/auth/me:
+    get:
+      tags:
+        - Authentication
+      summary: Get current user information
+      responses:
+        '200':
+          description: Current user information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+        '404':
+          description: User not found
+        '500':
+          description: Server error
+
+  /api/auth/change-password:
+    post:
+      tags:
+        - Authentication
+      summary: Change user password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - currentPassword
+                - newPassword
+              properties:
+                currentPassword:
+                  type: string
+                  format: password
+                  example: OldPassword123
+                newPassword:
+                  type: string
+                  format: password
+                  example: NewPassword456
+      responses:
+        '200':
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: Current and new passwords are required
+        '401':
+          description: Current password is incorrect
+        '500':
+          description: Server error
+
+  # PRODUCT ROUTES
+  /api/products:
+    get:
+      tags:
+        - Products
+      summary: Get all products with pagination
+      security: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Number of items per page
+        - in: query
+          name: category
+          schema:
+            type: string
+          description: Filter by category
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Search term for product name or description
+      responses:
+        '200':
+          description: List of products
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pagination:
+                    type: object
+                    properties:
+                      currentPage:
+                        type: integer
+                      totalPages:
+                        type: integer
+                      totalItems:
+                        type: integer
+                      perPage:
+                        type: integer
+                  products:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+        '500':
+          description: Server error
+    
+    post:
+      tags:
+        - Products
+      summary: Create a new product (Admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - category
+                - price
+              properties:
+                name:
+                  type: string
+                  example: Luminous Foundation
+                category:
+                  type: string
+                  example: Makeup
+                price:
+                  type: number
+                  format: float
+                  example: 29.99
+                originalPrice:
+                  type: number
+                  format: float
+                  example: 39.99
+                discountPercentage:
+                  type: integer
+                  example: 25
+                description:
+                  type: string
+                  example: A lightweight foundation for all skin types
+                ingredients:
+                  type: string
+                  example: Water, Cyclopentasiloxane, Titanium Dioxide
+                howToUse:
+                  type: string
+                  example: Apply a small amount to clean skin
+                inventoryStatus:
+                  type: string
+                  example: in-stock
+                inventoryMessage:
+                  type: string
+                  example: Available for immediate shipping
+                colors:
+                  type: string
+                  example: '[{"name":"Light","value":"#F5DEB3"},{"name":"Medium","value":"#D2B48C"}]'
+      responses:
+        '201':
+          description: Product created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  message:
+                    type: string
+        '400':
+          description: Invalid input data
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin access required
+        '500':
+          description: Server error
+
+  /api/products/{id}:
+    get:
+      tags:
+        - Products
+      summary: Get a product by ID
+      security: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Product ID
+      responses:
+        '200':
+          description: Product details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          description: Product not found
+        '500':
+          description: Server error
+    
+    put:
+      tags:
+        - Products
+      summary: Update a product (Admin only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Product ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - category
+                - price
+              properties:
+                name:
+                  type: string
+                category:
+                  type: string
+                price:
+                  type: number
+                  format: float
+                originalPrice:
+                  type: number
+                  format: float
+                discountPercentage:
+                  type: integer
+                description:
+                  type: string
+                ingredients:
+                  type: string
+                howToUse:
+                  type: string
+                inventoryStatus:
+                  type: string
+                inventoryMessage:
+                  type: string
+                colors:
+                  type: string
+      responses:
+        '200':
+          description: Product updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  message:
+                    type: string
+        '400':
+          description: Invalid input data
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin access required
+        '404':
+          description: Product not found
+        '500':
+          description: Server error
+    
+    delete:
+      tags:
+        - Products
+      summary: Delete a product (Admin only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Product ID
+      responses:
+        '200':
+          description: Product deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin access required
+        '404':
+          description: Product not found
+        '500':
+          description: Server error
+
+  /api/products/{id}/images:
+    post:
+      tags:
+        - Products
+      summary: Add product image (Admin only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Product ID
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+                isPrimary:
+                  type: string
+                  enum: ['true', 'false']
+      responses:
+        '201':
+          description: Image added successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  productId:
+                    type: integer
+                  imagePath:
+                    type: string
+                  isPrimary:
+                    type: boolean
+        '400':
+          description: No image file provided
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin access required
+        '404':
+          description: Product not found
+        '500':
+          description: Server error
+
+  /api/products/{productId}/images/{imageId}:
+    delete:
+      tags:
+        - Products
+      summary: Delete product image (Admin only)
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema:
+            type: integer
+          description: Product ID
+        - in: path
+          name: imageId
+          required: true
+          schema:
+            type: integer
+          description: Image ID
+      responses:
+        '200':
+          description: Image deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin access required
+        '404':
+          description: Image not found
+        '500':
+          description: Server error
+
+  /api/products/{productId}/images/{imageId}/primary:
+    put:
+      tags:
+        - Products
+      summary: Set product image as primary (Admin only)
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema:
+            type: integer
+          description: Product ID
+        - in: path
+          name: imageId
+          required: true
+          schema:
+            type: integer
+          description: Image ID
+      responses:
+        '200':
+          description: Primary image set successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin access required
+        '404':
+          description: Image not found
+        '500':
+          description: Server error
+
+  # CONTENT ROUTES
+  /api/content:
+    get:
+      tags:
+        - Content
+      summary: Get all website content
+      security: []
+      responses:
+        '200':
+          description: Website content grouped by section
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+                  additionalProperties:
+                    type: object
+                    properties:
+                      value:
+                        type: string
+                      type:
+                        type: string
+                      id:
+                        type: integer
+        '500':
+          description: Server error
+    
+    post:
+      tags:
+        - Content
+      summary: Add new content (Admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - section
+                - key
+                - value
+              properties:
+                section:
+                  type: string
+                  example: hero
+                key:
+                  type: string
+                  example: title
+                value:
+                  type: string
+                  example: Ready to look flawless all day
+                type:
+                  type: string
+                  enum: [text, image, html, video]
+                  default: text
+                  example: text
+      responses:
+        '201':
+          description: Content added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Content'
+        '400':
+          description: Invalid input or content already exists
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin access required
+        '500':
+          description: Server error
+
+  /api/content/section/{section}:
+    get:
+      tags:
+        - Content
+      summary: Get content by section
+      security: []
+      parameters:
+        - in: path
+          name: section
+          required: true
+          schema:
+            type: string
+          description: Content section name
+      responses:
+        '200':
+          description: Content for specified section
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+                  properties:
+                    value:
+                      type: string
+                    type:
+                      type: string
+                    id:
+                      type: integer
+        '500':
+          description: Server error
+
+  /api/content/{id}:
+    put:
+      tags:
+        - Content
+      summary: Update content (Admin only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Content ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - value
+              properties:
+                value:
+                  type: string
+      responses:
+        '200':
+          description: Content updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  id:
+                    type: integer
+        '400':
+          description: Content value is required
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin access required
+        '404':
+          description: Content not found
+        '500':
+          description: Server error
+    
+    delete:
+      tags:
+        - Content
+      summary: Delete content (Admin only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Content ID
+      responses:
+        '200':
+          description: Content deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin access required
+        '404':
+          description: Content not found
+        '500':
+          description: Server error
+
+  /api/content/{id}/image:
+    put:
+      tags:
+        - Content
+      summary: Update content image (Admin only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Content ID
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Content image updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  id:
+                    type: integer
+                  imagePath:
+                    type: string
+        '400':
+          description: No image file provided or content is not an image type
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin access required
+        '404':
+          description: Content not found
+        '500':
+          description: Server error
+
+  # CATEGORY ROUTES
+  /api/categories:
+    get:
+      tags:
+        - Categories
+      summary: Get all categories
+      security: []
+      responses:
+        '200':
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Category'
+        '500':
+          description: Server error
+    
+    post:
+      tags:
+        - Categories
+      summary: Create a new category (Admin only)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  example: Skincare
+                image:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Category created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+        '400':
+          description: Category name is required or category already exists
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin access required
+        '500':
+          description: Server error
+
+  /api/categories/{id}:
+    get:
+      tags:
+        - Categories
+      summary: Get category by ID
+      security: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Category ID
+      responses:
+        '200':
+          description: Category details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+        '404':
+          description: Category not found
+        '500':
+          description: Server error
+    
+    put:
+      tags:
+        - Categories
+      summary: Update a category (Admin only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Category ID
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                image:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Category updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+        '400':
+          description: Category name is required or category already exists
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin access required
+        '404':
+          description: Category not found
+        '500':
+          description: Server error
+    
+    delete:
+      tags:
+        - Categories
+      summary: Delete a category (Admin only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Category ID
+      responses:
+        '200':
+          description: Category deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: Cannot delete category with associated products
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin access required
+        '404':
+          description: Category not found
+        '500':
+          description: Server error
+
+  /api/categories/{id}/products:
+    get:
+      tags:
+        - Categories
+      summary: Get products by category
+      security: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Category ID
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 12
+          description: Number of items per page
+        - in: query
+          name: sort
+          schema:
+            type: string
+            enum: [newest, price-asc, price-desc, discount]
+            default: newest
+          description: Sort order
+      responses:
+        '200':
+          description: List of products in category
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  category:
+                    type: string
+                  pagination:
+                    type: object
+                    properties:
+                      currentPage:
+                        type: integer
+                      totalPages:
+                        type: integer
+                      totalItems:
+                        type: integer
+                      perPage:
+                        type: integer
+                  products:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+        '404':
+          description: Category not found
+        '500':
+          description: Server error
+
+  # USER ROUTES
+  /api/users:
+    get:
+      tags:
+        - Users
+      summary: Get all users (Admin only)
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin access required
+        '500':
+          description: Server error
+
+  /api/users/{id}:
+    get:
+      tags:
+        - Users
+      summary: Get user by ID (Admin only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: User ID
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin access required
+        '404':
+          description: User not found
+        '500':
+          description: Server error
+
+  /api/users/profile:
+    get:
+      tags:
+        - Users
+      summary: Get current user profile
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+        '404':
+          description: User not found
+        '500':
+          description: Server error
+    
+    put:
+      tags:
+        - Users
+      summary: Update user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  example: John Doe
+                phone:
+                  type: string
+                  example: "+1234567890"
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Name is required
+        '401':
+          description: Unauthorized
+        '404':
+          description: User not found
+        '500':
+          description: Server error
+
+  /api/users/change-password:
+    post:
+      tags:
+        - Users
+      summary: Change user password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - currentPassword
+                - newPassword
+              properties:
+                currentPassword:
+                  type: string
+                  format: password
+                  example: OldPassword123
+                newPassword:
+                  type: string
+                  format: password
+                  example: NewPassword456
+      responses:
+        '200':
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: Current and new passwords are required
+        '401':
+          description: Unauthorized
+        '404':
+          description: User not found
+        '500':
+          description: Server error
+
+  /api/users/addresses:
+    get:
+      tags:
+        - Users
+      summary: Get user addresses
+      responses:
+        '200':
+          description: List of user addresses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Address'
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+    
+    post:
+      tags:
+        - Users
+      summary: Add a new address
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - address
+                - city
+                - state
+                - postalCode
+                - country
+              properties:
+                name:
+                  type: string
+                  example: Home
+                address:
+                  type: string
+                  example: 123 Main St, Apt 4B
+                city:
+                  type: string
+                  example: New York
+                state:
+                  type: string
+                  example: NY
+                postalCode:
+                  type: string
+                  example: "10001"
+                country:
+                  type: string
+                  example: USA
+                phone:
+                  type: string
+                  example: "+1234567890"
+                isDefault:
+                  type: boolean
+                  example: true
+      responses:
+        '201':
+          description: Address added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+        '400':
+          description: All address fields are required
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/users/addresses/{id}:
+    put:
+      tags:
+        - Users
+      summary: Update an address
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Address ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - address
+                - city
+                - state
+                - postalCode
+                - country
+              properties:
+                name:
+                  type: string
+                address:
+                  type: string
+                city:
+                  type: string
+                state:
+                  type: string
+                postalCode:
+                  type: string
+                country:
+                  type: string
+                phone:
+                  type: string
+                isDefault:
+                  type: boolean
+      responses:
+        '200':
+          description: Address updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+        '400':
+          description: All address fields are required
+        '401':
+          description: Unauthorized
+        '404':
+          description: Address not found or not owned by user
+        '500':
+          description: Server error
+    
+    delete:
+      tags:
+        - Users
+      summary: Delete an address
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Address ID
+      responses:
+        '200':
+          description: Address deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '401':
+          description: Unauthorized
+        '404':
+          description: Address not found or not owned by user
+        '500':
+          description: Server error
+
+  /api/users/payment-methods:
+    get:
+      tags:
+        - Users
+      summary: Get user payment methods
+      responses:
+        '200':
+          description: List of user payment methods
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PaymentMethod'
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+    
+    post:
+      tags:
+        - Users
+      summary: Add a new payment method
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - cardType
+                - lastFour
+                - expiryMonth
+                - expiryYear
+              properties:
+                cardType:
+                  type: string
+                  example: Visa
+                lastFour:
+                  type: string
+                  example: "4242"
+                expiryMonth:
+                  type: string
+                  example: "12"
+                expiryYear:
+                  type: string
+                  example: "2025"
+                isDefault:
+                  type: boolean
+                  example: true
+      responses:
+        '201':
+          description: Payment method added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentMethod'
+        '400':
+          description: All payment method fields are required
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/users/payment-methods/{id}:
+    delete:
+      tags:
+        - Users
+      summary: Delete a payment method
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Payment Method ID
+      responses:
+        '200':
+          description: Payment method deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '401':
+          description: Unauthorized
+        '404':
+          description: Payment method not found or not owned by user
+        '500':
+          description: Server error
+
+  # ORDER ROUTES
+  /api/orders:
+    get:
+      tags:
+        - Orders
+      summary: Get user orders
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Number of items per page
+      responses:
+        '200':
+          description: List of user orders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pagination:
+                    type: object
+                    properties:
+                      currentPage:
+                        type: integer
+                      totalPages:
+                        type: integer
+                      totalItems:
+                        type: integer
+                      perPage:
+                        type: integer
+                  orders:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Order'
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+    
+    post:
+      tags:
+        - Orders
+      summary: Create a new order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - items
+                - subtotal
+                - total
+                - shippingAddress
+              properties:
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      quantity:
+                        type: integer
+                      price:
+                        type: number
+                        format: float
+                      selectedColor:
+                        type: string
+                subtotal:
+                  type: number
+                  format: float
+                discount:
+                  type: number
+                  format: float
+                shippingCost:
+                  type: number
+                  format: float
+                total:
+                  type: number
+                  format: float
+                shippingAddress:
+                  type: object
+                billingAddress:
+                  type: object
+                paymentMethod:
+                  type: string
+      responses:
+        '201':
+          description: Order created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  orderNumber:
+                    type: string
+                  status:
+                    type: string
+                  subtotal:
+                    type: number
+                    format: float
+                  discount:
+                    type: number
+                    format: float
+                  shippingCost:
+                    type: number
+                    format: float
+                  total:
+                    type: number
+                    format: float
+                  createdAt:
+                    type: string
+                    format: date-time
+        '400':
+          description: Invalid input data
+        '401':
+          description: Unauthorized
+        '500':
+          description: Server error
+
+  /api/orders/guest:
+    post:
+      tags:
+        - Orders
+      summary: Create a guest order (no authentication)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userInfo
+                - items
+                - subtotal
+                - total
+                - shippingAddress
+              properties:
+                userInfo:
+                  type: object
+                  required:
+                    - email
+                  properties:
+                    email:
+                      type: string
+                      format: email
+                    name:
+                      type: string
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      quantity:
+                        type: integer
+                      price:
+                        type: number
+                        format: float
+                      selectedColor:
+                        type: string
+                subtotal:
+                  type: number
+                  format: float
+                discount:
+                  type: number
+                  format: float
+                shippingCost:
+                  type: number
+                  format: float
+                total:
+                  type: number
+                  format: float
+                shippingAddress:
+                  type: object
+                billingAddress:
+                  type: object
+                paymentMethod:
+                  type: string
+      responses:
+        '201':
+          description: Order created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  orderNumber:
+                    type: string
+                  status:
+                    type: string
+                  subtotal:
+                    type: number
+                    format: float
+                  discount:
+                    type: number
+                    format: float
+                  shippingCost:
+                    type: number
+                    format: float
+                  total:
+                    type: number
+                    format: float
+                  createdAt:
+                    type: string
+                    format: date-time
+        '400':
+          description: Invalid input data
+        '500':
+          description: Server error
+
+  /api/orders/latest:
+    get:
+      tags:
+        - Orders
+      summary: Get user's latest order
+      responses:
+        '200':
+          description: Latest order details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '401':
+          description: Unauthorized
+        '404':
+          description: No orders found
+        '500':
+          description: Server error
+
+  /api/orders/{id}:
+    get:
+      tags:
+        - Orders
+      summary: Get order by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Order ID
+      responses:
+        '200':
+          description: Order details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Order not found
+        '500':
+          description: Server error
+
+  /api/orders/{id}/cancel:
+    put:
+      tags:
+        - Orders
+      summary: Cancel an order
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Order ID
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  example: Changed my mind
+      responses:
+        '200':
+          description: Order cancelled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  orderId:
+                    type: integer
+                  status:
+                    type: string
+                    enum: [cancelled]
+        '400':
+          description: Order cannot be cancelled
+        '401':
+          description: Unauthorized
+        '404':
+          description: Order not found
+        '500':
+          description: Server error
+
+  /api/orders/track:
+    get:
+      tags:
+        - Orders
+      summary: Track an order (for guests)
+      security: []
+      parameters:
+        - in: query
+          name: orderNumber
+          required: true
+          schema:
+            type: string
+          description: Order number (e.g., ORD-000123)
+        - in: query
+          name: email
+          required: true
+          schema:
+            type: string
+            format: email
+          description: Email associated with the order
+      responses:
+        '200':
+          description: Order tracking information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orderNumber:
+                    type: string
+                  status:
+                    type: string
+                  createdAt:
+                    type: string
+                    format: date-time
+                  total:
+                    type: number
+                    format: float
+                  shippingAddress:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      city:
+                        type: string
+                      state:
+                        type: string
+                      country:
+                        type: string
+        '400':
+          description: Order number and email are required
+        '404':
+          description: Order not found or email does not match
+        '500':
+          description: Server error
+
+  /api/orders/promo-code/validate:
+    post:
+      tags:
+        - Orders
+      summary: Validate a promo code
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+              properties:
+                code:
+                  type: string
+                  example: SUMMER25
+      responses:
+        '200':
+          description: Valid promo code
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                  code:
+                    type: string
+                  discountType:
+                    type: string
+                    enum: [percentage, fixed]
+                  discountValue:
+                    type: number
+                    format: float
+                  message:
+                    type: string
+        '400':
+          description: Promo code is required
+        '404':
+          description: Invalid or expired promo code
+        '500':
+          description: Server error
+
+  /api/orders/shipping/calculate:
+    post:
+      tags:
+        - Orders
+      summary: Calculate shipping cost
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - postalCode
+                - country
+                - items
+              properties:
+                postalCode:
+                  type: string
+                  example: "10001"
+                country:
+                  type: string
+                  example: USA
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      quantity:
+                        type: integer
+                subtotal:
+                  type: number
+                  format: float
+      responses:
+        '200':
+          description: Shipping cost calculation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  shippingCost:
+                    type: number
+                    format: float
+                  currency:
+                    type: string
+                  freeShippingThreshold:
+                    type: number
+                    format: float
+                  estimatedDelivery:
+                    type: string
+        '400':
+          description: Postal code, country, and items are required
+        '500':
+          description: Server error
+
+  /api/orders/admin/orders:
+    get:
+      tags:
+        - Orders
+      summary: Get all orders (Admin only)
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Number of items per page
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, processing, shipped, delivered, cancelled]
+          description: Filter by order status
+      responses:
+        '200':
+          description: List of all orders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pagination:
+                    type: object
+                    properties:
+                      currentPage:
+                        type: integer
+                      totalPages:
+                        type: integer
+                      totalItems:
+                        type: integer
+                      perPage:
+                        type: integer
+                  orders:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        orderNumber:
+                          type: string
+                        user_id:
+                          type: integer
+                          nullable: true
+                        guest_email:
+                          type: string
+                          nullable: true
+                        guest_name:
+                          type: string
+                          nullable: true
+                        user_name:
+                          type: string
+                          nullable: true
+                        user_email:
+                          type: string
+                          nullable: true
+                        status:
+                          type: string
+                        subtotal:
+                          type: number
+                          format: float
+                        discount:
+                          type: number
+                          format: float
+                        shipping_cost:
+                          type: number
+                          format: float
+                        total:
+                          type: number
+                          format: float
+                        created_at:
+                          type: string
+                          format: date-time
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin access required
+        '500':
+          description: Server error
+
+  /api/orders/admin/orders/stats:
+    get:
+      tags:
+        - Orders
+      summary: Get order statistics (Admin only)
+      parameters:
+        - in: query
+          name: startDate
+          schema:
+            type: string
+            format: date
+          description: Start date for statistics (default is 30 days ago)
+        - in: query
+          name: endDate
+          schema:
+            type: string
+            format: date
+          description: End date for statistics (default is today)
+      responses:
+        '200':
+          description: Order statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  period:
+                    type: object
+                    properties:
+                      startDate:
+                        type: string
+                        format: date
+                      endDate:
+                        type: string
+                        format: date
+                  totals:
+                    type: object
+                    properties:
+                      orders:
+                        type: integer
+                      revenue:
+                        type: number
+                        format: float
+                  ordersByStatus:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        status:
+                          type: string
+                        count:
+                          type: integer
+                  topProducts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        product_id:
+                          type: integer
+                        name:
+                          type: string
+                        orderCount:
+                          type: integer
+                        totalQuantity:
+                          type: integer
+                  dailyStats:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date:
+                          type: string
+                          format: date
+                        orderCount:
+                          type: integer
+                        revenue:
+                          type: number
+                          format: float
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin access required
+        '500':
+          description: Server error
+
+  /api/orders/{id}/status:
+    put:
+      tags:
+        - Orders
+      summary: Update order status (Admin only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Order ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [pending, processing, shipped, delivered, cancelled]
+      responses:
+        '200':
+          description: Order status updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  orderId:
+                    type: integer
+                  status:
+                    type: string
+        '400':
+          description: Invalid status value
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - Admin access required
+        '404':
+          description: Order not found
+        '500':
+          description: Server error
