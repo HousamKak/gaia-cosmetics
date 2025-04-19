@@ -1,0 +1,10 @@
+/* frontend/src/index.css */
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* Import our custom styles */
+@import './styles/variables.css';
+@import './styles/global.css';
+
+/* Add any additional component-specific styles below */
