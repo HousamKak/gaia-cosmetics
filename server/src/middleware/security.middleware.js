@@ -3,7 +3,10 @@ const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 
 // Security headers middleware using Helmet
-const securityHeaders = helmet();
+const securityHeaders = [
+  helmet(),
+  helmet.crossOriginResourcePolicy({ policy: 'cross-origin' })
+];
 
 // Rate limiting middleware
 const apiLimiter = rateLimit({

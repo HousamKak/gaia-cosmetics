@@ -8,6 +8,8 @@ import { useWishlist } from '../../contexts/WishlistContext';
 import { formatPrice, formatDiscount } from '../../utils/formatter';
 
 const ProductCard = ({ product, onClick }) => {
+  console.log('Product data:', product);
+
   const { addToCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const [selectedColor, setSelectedColor] = useState(
@@ -44,10 +46,9 @@ const ProductCard = ({ product, onClick }) => {
     setSelectedColor(color);
   };
 
-  // Find primary image or use first image or placeholder
-  const productImage = product.images && product.images.length > 0
-    ? (product.images.find(img => img.isPrimary)?.imagePath || product.images[0].imagePath)
-    : (product.image || '/images/product-placeholder.jpg');
+  // Update the logic to prioritize the 'image' field from the product data
+  const serverBaseUrl = 'http://localhost:5000'; // Update this to your server's base URL
+  const productImage = `${serverBaseUrl}${product.image || product.primary_image || '/images/product-placeholder.jpg'}`;
 
   return (
     <div className="group relative" onClick={onClick}>
