@@ -320,7 +320,7 @@ const AdminDashboard = () => {
                     </dt>
                     <dd>
                       <div className="text-lg font-semibold text-neutral-900">
-                        ₹{stats.totalRevenue.toLocaleString()}
+                        ${stats.totalRevenue.toLocaleString()}
                       </div>
                     </dd>
                   </dl>
@@ -394,7 +394,7 @@ const AdminDashboard = () => {
                       <div className="text-sm text-neutral-500">{product.category}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-neutral-900">₹{product.price}</div>
+                      <div className="text-sm text-neutral-900">${product.price}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
                       {product.createdAt}
@@ -480,7 +480,7 @@ const AdminDashboard = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
-                      ₹{order.total}
+                      ${order.total}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
                       {order.createdAt}

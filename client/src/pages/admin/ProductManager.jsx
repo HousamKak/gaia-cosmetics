@@ -566,7 +566,7 @@ const ProductManager = () => {
                         {/* Price */}
                         <div className="sm:col-span-3">
                           <label htmlFor="price" className="block text-sm font-medium text-neutral-700">
-                            Price (₹) *
+                            Price ($) *
                           </label>
                           <div className="mt-1">
                             <input
@@ -585,7 +585,7 @@ const ProductManager = () => {
                         {/* Original Price */}
                         <div className="sm:col-span-3">
                           <label htmlFor="originalPrice" className="block text-sm font-medium text-neutral-700">
-                            Original Price (₹)
+                            Original Price ($)
                           </label>
                           <div className="mt-1">
                             <input

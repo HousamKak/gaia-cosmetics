@@ -646,7 +646,7 @@ const Account = () => {
                                 </p>
                               </div>
                               <div className="text-right">
-                                <p className="text-sm font-medium text-neutral-900">₹{order.total}</p>
+                                <p className="text-sm font-medium text-neutral-900">${order.total}</p>
                                 <Link
                                   to={`/account/orders/${order.id}`}
                                   className="text-xs text-primary hover:text-primary-dark"
@@ -663,7 +663,7 @@ const Account = () => {
                                     <p className="text-sm text-neutral-500">Qty: {item.quantity}</p>
                                   </div>
                                   <div className="text-sm font-medium text-neutral-900">
-                                    ₹{item.price}
+                                    ${item.price}
                                   </div>
                                 </div>
                               ))}

@@ -251,7 +251,7 @@ const ProductForm = ({ product = null, isEditing = false }) => {
 
               <div className="col-span-6 sm:col-span-2">
                 <label htmlFor="price" className="block text-sm font-medium text-neutral-700">
-                  Price (₹) *
+                  Price ($) *
                 </label>
                 <input
                   type="number"
@@ -268,7 +268,7 @@ const ProductForm = ({ product = null, isEditing = false }) => {
 
               <div className="col-span-6 sm:col-span-2">
                 <label htmlFor="originalPrice" className="block text-sm font-medium text-neutral-700">
-                  Original Price (₹)
+                  Original Price ($)
                 </label>
                 <input
                   type="number"
