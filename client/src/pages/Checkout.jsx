@@ -3,7 +3,11 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import orderService from '../services/order.service';
+import useForm from '../hooks/useForm';
+import { isValidEmail, isValidIndianPhone, isValidIndianPostalCode } from '../utils/validation';
+import { formatPrice } from '../utils/formatter';
 import { 
   CreditCardIcon, 
   BanknotesIcon, 
@@ -16,32 +20,13 @@ import {
 const Checkout = () => {
   const { cartItems, subtotal, discount, shippingCost, total, clearCart } = useCart();
   const { user } = useAuth();
+  const { showSuccess, showError } = useNotification();
   const navigate = useNavigate();
   
   const [activeStep, setActiveStep] = useState('shipping');
-  const [formData, setFormData] = useState({
-    // Shipping Information
-    fullName: '',
-    email: '',
-    phone: '',
-    address: '',
-    city: '',
-    state: '',
-    postalCode: '',
-    country: 'India',
-    
-    // Payment Information
-    paymentMethod: 'card',
-    savedCard: 'new',
-    cardNumber: '',
-    nameOnCard: '',
-    expiryDate: '',
-    cvv: '',
-  });
-  const [errors, setErrors] = useState({});
-  const [loading, setLoading] = useState(false);
   const [orderComplete, setOrderComplete] = useState(false);
   const [orderId, setOrderId] = useState(null);
+  const [sameAsShipping, setSameAsShipping] = useState(true);
 
   // Redirect to cart if cart is empty
   useEffect(() => {
@@ -51,153 +36,216 @@ const Checkout = () => {
     
     // Pre-fill user information if available, but don't require login
     if (user) {
-      setFormData(prev => ({
-        ...prev,
+      setFormValues({
         fullName: user.name || '',
         email: user.email || ''
-      }));
+      });
     }
   }, [cartItems.length, navigate, user, orderComplete]);
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
-    // Clear error when field is updated
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
-    }
-  };
-
-  const validateShippingForm = () => {
-    const newErrors = {};
-    const requiredFields = ['fullName', 'email', 'phone', 'address', 'city', 'state', 'postalCode', 'country'];
-    
-    requiredFields.forEach(field => {
-      if (!formData[field]) {
-        newErrors[field] = `${field.charAt(0).toUpperCase() + field.slice(1).replace(/([A-Z])/g, ' $1')} is required`;
+  // Validation rules for shipping form
+  const shippingValidationRules = {
+    fullName: {
+      required: true,
+      requiredMessage: 'Full name is required'
+    },
+    email: {
+      required: true,
+      email: true,
+      requiredMessage: 'Email is required',
+      validate: (value) => {
+        return isValidEmail(value) ? null : 'Please enter a valid email address';
       }
-    });
-    
-    // Email validation
-    if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
+    },
+    phone: {
+      required: true,
+      requiredMessage: 'Phone number is required',
+      validate: (value) => {
+        return isValidIndianPhone(value) ? null : 'Please enter a valid 10-digit phone number';
+      }
+    },
+    address: {
+      required: true,
+      requiredMessage: 'Address is required'
+    },
+    city: {
+      required: true,
+      requiredMessage: 'City is required'
+    },
+    state: {
+      required: true,
+      requiredMessage: 'State is required'
+    },
+    postalCode: {
+      required: true,
+      requiredMessage: 'Postal code is required',
+      validate: (value) => {
+        return isValidIndianPostalCode(value) ? null : 'Please enter a valid 6-digit postal code';
+      }
+    },
+    country: {
+      required: true,
+      requiredMessage: 'Country is required'
     }
-    
-    // Phone validation
-    if (formData.phone && !/^\d{10}$/.test(formData.phone)) {
-      newErrors.phone = 'Please enter a valid 10-digit phone number';
-    }
-    
-    // Postal code validation
-    if (formData.postalCode && !/^\d{6}$/.test(formData.postalCode)) {
-      newErrors.postalCode = 'Please enter a valid 6-digit postal code';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
   };
 
-  const validatePaymentForm = () => {
-    const newErrors = {};
-    
-    if (formData.paymentMethod === 'card') {
-      if (formData.savedCard === 'new') {
-        // Validate new card details
-        if (!formData.cardNumber) {
-          newErrors.cardNumber = 'Card number is required';
-        } else if (!/^\d{16}$/.test(formData.cardNumber)) {
-          newErrors.cardNumber = 'Please enter a valid 16-digit card number';
-        }
-        
-        if (!formData.nameOnCard) {
-          newErrors.nameOnCard = 'Name on card is required';
-        }
-        
-        if (!formData.expiryDate) {
-          newErrors.expiryDate = 'Expiry date is required';
-        } else if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(formData.expiryDate)) {
-          newErrors.expiryDate = 'Please enter a valid expiry date (MM/YY)';
-        }
-        
-        if (!formData.cvv) {
-          newErrors.cvv = 'CVV is required';
-        } else if (!/^\d{3,4}$/.test(formData.cvv)) {
-          newErrors.cvv = 'Please enter a valid CVV';
-        }
+  // Validation rules for payment form
+  const paymentValidationRules = {
+    cardNumber: {
+      required: (values) => values.paymentMethod === 'card' && values.savedCard === 'new',
+      requiredMessage: 'Card number is required',
+      validate: (value, values) => {
+        if (values.paymentMethod !== 'card' || values.savedCard !== 'new') return null;
+        return /^\d{16}$/.test(value) ? null : 'Please enter a valid 16-digit card number';
+      }
+    },
+    nameOnCard: {
+      required: (values) => values.paymentMethod === 'card' && values.savedCard === 'new',
+      requiredMessage: 'Name on card is required'
+    },
+    expiryDate: {
+      required: (values) => values.paymentMethod === 'card' && values.savedCard === 'new',
+      requiredMessage: 'Expiry date is required',
+      validate: (value, values) => {
+        if (values.paymentMethod !== 'card' || values.savedCard !== 'new') return null;
+        return /^(0[1-9]|1[0-2])\/\d{2}$/.test(value) ? null : 'Please enter a valid expiry date (MM/YY)';
+      }
+    },
+    cvv: {
+      required: (values) => values.paymentMethod === 'card' && values.savedCard === 'new',
+      requiredMessage: 'CVV is required',
+      validate: (value, values) => {
+        if (values.paymentMethod !== 'card' || values.savedCard !== 'new') return null;
+        return /^\d{3,4}$/.test(value) ? null : 'Please enter a valid CVV';
       }
     }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
   };
 
-  const handleContinueToPayment = (e) => {
-    e.preventDefault();
+  // Initial form values
+  const initialValues = {
+    // Shipping Information
+    fullName: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: '',
+    state: '',
+    postalCode: '',
+    country: 'India',
+    saveAddress: false,
     
-    if (validateShippingForm()) {
-      setActiveStep('payment');
-      window.scrollTo(0, 0);
-    }
+    // Payment Information
+    paymentMethod: 'card',
+    savedCard: 'new',
+    cardNumber: '',
+    nameOnCard: '',
+    expiryDate: '',
+    cvv: '',
+    saveCard: false
   };
 
-  const handlePlaceOrder = async (e) => {
-    e.preventDefault();
+  // Form submission handlers
+  const handleShippingSubmit = (values) => {
+    setActiveStep('payment');
+    window.scrollTo(0, 0);
+  };
 
-    if (validatePaymentForm()) {
-      try {
-        setLoading(true);
+  const handlePaymentSubmit = async (values) => {
+    try {
+      // Prepare order data
+      const orderData = {
+        items: cartItems,
+        subtotal,
+        discount,
+        shippingCost,
+        total,
+        shippingAddress: {
+          fullName: values.fullName,
+          email: values.email,
+          phone: values.phone,
+          address: values.address,
+          city: values.city,
+          state: values.state,
+          postalCode: values.postalCode,
+          country: values.country
+        },
+        billingAddress: sameAsShipping ? 
+          {
+            fullName: values.fullName,
+            email: values.email,
+            phone: values.phone,
+            address: values.address,
+            city: values.city,
+            state: values.state,
+            postalCode: values.postalCode,
+            country: values.country
+          } : 
+          {
+            // If implementing billing address form, use those values here
+          },
+        paymentMethod: values.paymentMethod,
+        paymentDetails: values.paymentMethod === 'card' ? {
+          cardType: 'visa',
+          lastFour: values.cardNumber ? values.cardNumber.slice(-4) : '',
+          expiryDate: values.expiryDate
+        } : null
+      };
 
-        // Prepare order data
-        const orderData = {
-          items: cartItems,
-          subtotal,
-          discount,
-          shippingCost,
-          total,
-          shippingAddress: formData, // Contains address info
-          billingAddress: formData, // Same as shipping for now
-          paymentMethod: formData.paymentMethod
+      // Use order service to create order
+      let response;
+      if (user) {
+        // Logged in user
+        response = await orderService.createOrder(orderData);
+      } else {
+        // Guest checkout
+        const userInfo = {
+          email: values.email,
+          name: values.fullName
         };
-
-        // Use order service to create order
-        let response;
-        if (user) {
-          // Logged in user
-          response = await orderService.createOrder(orderData);
-        } else {
-          // Guest checkout
-          const userInfo = {
-            email: formData.email,
-            name: formData.fullName
-          };
-          response = await orderService.guestCheckout({
-            ...orderData,
-            userInfo
-          });
-        }
-
-        // Generate a random order ID
-        const generatedOrderId = response.data.orderNumber || 'ORD-' + Math.floor(100000 + Math.random() * 900000);
-
-        setOrderId(generatedOrderId);
-        setOrderComplete(true);
-        clearCart();
-
-        setLoading(false);
-      } catch (err) {
-        console.error('Error placing order:', err);
-        setErrors({ submit: 'Failed to place order. Please try again.' });
-        setLoading(false);
+        response = await orderService.guestCheckout({
+          ...orderData,
+          userInfo
+        });
       }
+
+      // Generate a random order ID if not provided by API
+      const generatedOrderId = response.data?.orderNumber || 'ORD-' + Math.floor(100000 + Math.random() * 900000);
+
+      setOrderId(generatedOrderId);
+      setOrderComplete(true);
+      clearCart();
+      
+      showSuccess('Order placed successfully!');
+    } catch (err) {
+      console.error('Error placing order:', err);
+      showError(err.response?.data?.message || 'Failed to place order. Please try again.');
     }
   };
+
+  // Use the useForm hook for shipping form
+  const { 
+    values: shippingValues, 
+    errors: shippingErrors, 
+    handleChange: handleShippingChange, 
+    handleBlur: handleShippingBlur,
+    handleSubmit: submitShippingForm,
+    setValues: setFormValues
+  } = useForm(initialValues, shippingValidationRules, handleShippingSubmit);
+  
+  // Use the useForm hook for payment form
+  const { 
+    values: paymentValues, 
+    errors: paymentErrors, 
+    handleChange: handlePaymentChange, 
+    handleBlur: handlePaymentBlur,
+    handleSubmit: submitPaymentForm,
+    setValues: setPaymentValues
+  } = useForm(initialValues, paymentValidationRules, handlePaymentSubmit);
+
+  useEffect(() => {
+    // Keep both forms in sync
+    setPaymentValues(shippingValues);
+  }, [shippingValues]);
 
   const handleBackToShipping = () => {
     setActiveStep('shipping');
@@ -225,7 +273,7 @@ const Checkout = () => {
                 <p className="text-lg font-medium text-neutral-900">{orderId}</p>
               </div>
               <p className="text-sm text-neutral-600 mb-6">
-                A confirmation email has been sent to {formData.email}. We'll notify you when your order ships.
+                A confirmation email has been sent to {shippingValues.email}. We'll notify you when your order ships.
               </p>
               <div className="space-y-4">
                 <Link
@@ -289,7 +337,7 @@ const Checkout = () => {
             <div className="bg-white rounded-lg shadow overflow-hidden">
               {/* Shipping Information */}
               {activeStep === 'shipping' && (
-                <form onSubmit={handleContinueToPayment}>
+                <form onSubmit={submitShippingForm}>
                   <div className="px-6 py-4 border-b border-neutral-200">
                     <h2 className="text-lg font-medium text-neutral-900">Shipping Information</h2>
                   </div>
@@ -306,14 +354,15 @@ const Checkout = () => {
                             type="text"
                             id="fullName"
                             name="fullName"
-                            value={formData.fullName}
-                            onChange={handleInputChange}
+                            value={shippingValues.fullName}
+                            onChange={handleShippingChange}
+                            onBlur={handleShippingBlur}
                             className={`shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-300 rounded-md ${
-                              errors.fullName ? 'border-red-300' : ''
+                              shippingErrors.fullName ? 'border-red-300' : ''
                             }`}
                           />
-                          {errors.fullName && (
-                            <p className="mt-1 text-sm text-red-600">{errors.fullName}</p>
+                          {shippingErrors.fullName && (
+                            <p className="mt-1 text-sm text-red-600">{shippingErrors.fullName}</p>
                           )}
                         </div>
                       </div>
@@ -328,14 +377,15 @@ const Checkout = () => {
                             type="email"
                             id="email"
                             name="email"
-                            value={formData.email}
-                            onChange={handleInputChange}
+                            value={shippingValues.email}
+                            onChange={handleShippingChange}
+                            onBlur={handleShippingBlur}
                             className={`shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-300 rounded-md ${
-                              errors.email ? 'border-red-300' : ''
+                              shippingErrors.email ? 'border-red-300' : ''
                             }`}
                           />
-                          {errors.email && (
-                            <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+                          {shippingErrors.email && (
+                            <p className="mt-1 text-sm text-red-600">{shippingErrors.email}</p>
                           )}
                         </div>
                       </div>
@@ -350,14 +400,15 @@ const Checkout = () => {
                             type="tel"
                             id="phone"
                             name="phone"
-                            value={formData.phone}
-                            onChange={handleInputChange}
+                            value={shippingValues.phone}
+                            onChange={handleShippingChange}
+                            onBlur={handleShippingBlur}
                             className={`shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-300 rounded-md ${
-                              errors.phone ? 'border-red-300' : ''
+                              shippingErrors.phone ? 'border-red-300' : ''
                             }`}
                           />
-                          {errors.phone && (
-                            <p className="mt-1 text-sm text-red-600">{errors.phone}</p>
+                          {shippingErrors.phone && (
+                            <p className="mt-1 text-sm text-red-600">{shippingErrors.phone}</p>
                           )}
                         </div>
                       </div>
@@ -372,14 +423,15 @@ const Checkout = () => {
                             type="text"
                             id="address"
                             name="address"
-                            value={formData.address}
-                            onChange={handleInputChange}
+                            value={shippingValues.address}
+                            onChange={handleShippingChange}
+                            onBlur={handleShippingBlur}
                             className={`shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-300 rounded-md ${
-                              errors.address ? 'border-red-300' : ''
+                              shippingErrors.address ? 'border-red-300' : ''
                             }`}
                           />
-                          {errors.address && (
-                            <p className="mt-1 text-sm text-red-600">{errors.address}</p>
+                          {shippingErrors.address && (
+                            <p className="mt-1 text-sm text-red-600">{shippingErrors.address}</p>
                           )}
                         </div>
                       </div>
@@ -394,14 +446,15 @@ const Checkout = () => {
                             type="text"
                             id="city"
                             name="city"
-                            value={formData.city}
-                            onChange={handleInputChange}
+                            value={shippingValues.city}
+                            onChange={handleShippingChange}
+                            onBlur={handleShippingBlur}
                             className={`shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-300 rounded-md ${
-                              errors.city ? 'border-red-300' : ''
+                              shippingErrors.city ? 'border-red-300' : ''
                             }`}
                           />
-                          {errors.city && (
-                            <p className="mt-1 text-sm text-red-600">{errors.city}</p>
+                          {shippingErrors.city && (
+                            <p className="mt-1 text-sm text-red-600">{shippingErrors.city}</p>
                           )}
                         </div>
                       </div>
@@ -416,14 +469,15 @@ const Checkout = () => {
                             type="text"
                             id="state"
                             name="state"
-                            value={formData.state}
-                            onChange={handleInputChange}
+                            value={shippingValues.state}
+                            onChange={handleShippingChange}
+                            onBlur={handleShippingBlur}
                             className={`shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-300 rounded-md ${
-                              errors.state ? 'border-red-300' : ''
+                              shippingErrors.state ? 'border-red-300' : ''
                             }`}
                           />
-                          {errors.state && (
-                            <p className="mt-1 text-sm text-red-600">{errors.state}</p>
+                          {shippingErrors.state && (
+                            <p className="mt-1 text-sm text-red-600">{shippingErrors.state}</p>
                           )}
                         </div>
                       </div>
@@ -438,14 +492,15 @@ const Checkout = () => {
                             type="text"
                             id="postalCode"
                             name="postalCode"
-                            value={formData.postalCode}
-                            onChange={handleInputChange}
+                            value={shippingValues.postalCode}
+                            onChange={handleShippingChange}
+                            onBlur={handleShippingBlur}
                             className={`shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-300 rounded-md ${
-                              errors.postalCode ? 'border-red-300' : ''
+                              shippingErrors.postalCode ? 'border-red-300' : ''
                             }`}
                           />
-                          {errors.postalCode && (
-                            <p className="mt-1 text-sm text-red-600">{errors.postalCode}</p>
+                          {shippingErrors.postalCode && (
+                            <p className="mt-1 text-sm text-red-600">{shippingErrors.postalCode}</p>
                           )}
                         </div>
                       </div>
@@ -459,8 +514,9 @@ const Checkout = () => {
                           <select
                             id="country"
                             name="country"
-                            value={formData.country}
-                            onChange={handleInputChange}
+                            value={shippingValues.country}
+                            onChange={handleShippingChange}
+                            onBlur={handleShippingBlur}
                             className="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-300 rounded-md"
                           >
                             <option value="India">India</option>
@@ -469,8 +525,8 @@ const Checkout = () => {
                             <option value="Canada">Canada</option>
                             <option value="Australia">Australia</option>
                           </select>
-                          {errors.country && (
-                            <p className="mt-1 text-sm text-red-600">{errors.country}</p>
+                          {shippingErrors.country && (
+                            <p className="mt-1 text-sm text-red-600">{shippingErrors.country}</p>
                           )}
                         </div>
                       </div>
@@ -482,6 +538,8 @@ const Checkout = () => {
                             id="saveAddress"
                             name="saveAddress"
                             type="checkbox"
+                            checked={shippingValues.saveAddress}
+                            onChange={handleShippingChange}
                             className="h-4 w-4 text-primary focus:ring-primary border-neutral-300 rounded"
                           />
                           <label htmlFor="saveAddress" className="ml-2 block text-sm text-neutral-700">
@@ -505,7 +563,7 @@ const Checkout = () => {
               
               {/* Payment Information */}
               {activeStep === 'payment' && (
-                <form onSubmit={handlePlaceOrder}>
+                <form onSubmit={submitPaymentForm}>
                   <div className="px-6 py-4 border-b border-neutral-200">
                     <h2 className="text-lg font-medium text-neutral-900">Payment Method</h2>
                   </div>
@@ -523,8 +581,8 @@ const Checkout = () => {
                               name="paymentMethod"
                               type="radio"
                               value="card"
-                              checked={formData.paymentMethod === 'card'}
-                              onChange={handleInputChange}
+                              checked={paymentValues.paymentMethod === 'card'}
+                              onChange={handlePaymentChange}
                               className="h-4 w-4 text-primary focus:ring-primary border-neutral-300"
                             />
                           </div>
@@ -548,8 +606,8 @@ const Checkout = () => {
                               name="paymentMethod"
                               type="radio"
                               value="cod"
-                              checked={formData.paymentMethod === 'cod'}
-                              onChange={handleInputChange}
+                              checked={paymentValues.paymentMethod === 'cod'}
+                              onChange={handlePaymentChange}
                               className="h-4 w-4 text-primary focus:ring-primary border-neutral-300"
                             />
                           </div>
@@ -566,7 +624,7 @@ const Checkout = () => {
                     </fieldset>
                     
                     {/* Credit Card Details */}
-                    {formData.paymentMethod === 'card' && (
+                    {paymentValues.paymentMethod === 'card' && (
                       <div className="mt-6">
                         <div className="border-t border-neutral-200 pt-6">
                           <h3 className="text-base font-medium text-neutral-900 mb-4">Card Details</h3>
@@ -584,8 +642,8 @@ const Checkout = () => {
                                       name="savedCard"
                                       type="radio"
                                       value="mastercard"
-                                      checked={formData.savedCard === 'mastercard'}
-                                      onChange={handleInputChange}
+                                      checked={paymentValues.savedCard === 'mastercard'}
+                                      onChange={handlePaymentChange}
                                       className="h-4 w-4 text-primary focus:ring-primary border-neutral-300"
                                     />
                                   </div>
@@ -608,8 +666,8 @@ const Checkout = () => {
                                       name="savedCard"
                                       type="radio"
                                       value="amex"
-                                      checked={formData.savedCard === 'amex'}
-                                      onChange={handleInputChange}
+                                      checked={paymentValues.savedCard === 'amex'}
+                                      onChange={handlePaymentChange}
                                       className="h-4 w-4 text-primary focus:ring-primary border-neutral-300"
                                     />
                                   </div>
@@ -632,8 +690,8 @@ const Checkout = () => {
                                       name="savedCard"
                                       type="radio"
                                       value="new"
-                                      checked={formData.savedCard === 'new'}
-                                      onChange={handleInputChange}
+                                      checked={paymentValues.savedCard === 'new'}
+                                      onChange={handlePaymentChange}
                                       className="h-4 w-4 text-primary focus:ring-primary border-neutral-300"
                                     />
                                   </div>
@@ -648,7 +706,7 @@ const Checkout = () => {
                           </div>
                           
                           {/* New Card Form */}
-                          {formData.savedCard === 'new' && (
+                          {paymentValues.savedCard === 'new' && (
                             <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
                               {/* Card Number */}
                               <div className="sm:col-span-6">
@@ -661,14 +719,15 @@ const Checkout = () => {
                                     id="cardNumber"
                                     name="cardNumber"
                                     placeholder="1234 5678 9012 3456"
-                                    value={formData.cardNumber}
-                                    onChange={handleInputChange}
+                                    value={paymentValues.cardNumber}
+                                    onChange={handlePaymentChange}
+                                    onBlur={handlePaymentBlur}
                                     className={`shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-300 rounded-md ${
-                                      errors.cardNumber ? 'border-red-300' : ''
+                                      paymentErrors.cardNumber ? 'border-red-300' : ''
                                     }`}
                                   />
-                                  {errors.cardNumber && (
-                                    <p className="mt-1 text-sm text-red-600">{errors.cardNumber}</p>
+                                  {paymentErrors.cardNumber && (
+                                    <p className="mt-1 text-sm text-red-600">{paymentErrors.cardNumber}</p>
                                   )}
                                 </div>
                               </div>
@@ -683,14 +742,15 @@ const Checkout = () => {
                                     type="text"
                                     id="nameOnCard"
                                     name="nameOnCard"
-                                    value={formData.nameOnCard}
-                                    onChange={handleInputChange}
+                                    value={paymentValues.nameOnCard}
+                                    onChange={handlePaymentChange}
+                                    onBlur={handlePaymentBlur}
                                     className={`shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-300 rounded-md ${
-                                      errors.nameOnCard ? 'border-red-300' : ''
+                                      paymentErrors.nameOnCard ? 'border-red-300' : ''
                                     }`}
                                   />
-                                  {errors.nameOnCard && (
-                                    <p className="mt-1 text-sm text-red-600">{errors.nameOnCard}</p>
+                                  {paymentErrors.nameOnCard && (
+                                    <p className="mt-1 text-sm text-red-600">{paymentErrors.nameOnCard}</p>
                                   )}
                                 </div>
                               </div>
@@ -706,14 +766,15 @@ const Checkout = () => {
                                     id="expiryDate"
                                     name="expiryDate"
                                     placeholder="MM/YY"
-                                    value={formData.expiryDate}
-                                    onChange={handleInputChange}
+                                    value={paymentValues.expiryDate}
+                                    onChange={handlePaymentChange}
+                                    onBlur={handlePaymentBlur}
                                     className={`shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-300 rounded-md ${
-                                      errors.expiryDate ? 'border-red-300' : ''
+                                      paymentErrors.expiryDate ? 'border-red-300' : ''
                                     }`}
                                   />
-                                  {errors.expiryDate && (
-                                    <p className="mt-1 text-sm text-red-600">{errors.expiryDate}</p>
+                                  {paymentErrors.expiryDate && (
+                                    <p className="mt-1 text-sm text-red-600">{paymentErrors.expiryDate}</p>
                                   )}
                                 </div>
                               </div>
@@ -729,14 +790,15 @@ const Checkout = () => {
                                     id="cvv"
                                     name="cvv"
                                     placeholder="123"
-                                    value={formData.cvv}
-                                    onChange={handleInputChange}
+                                    value={paymentValues.cvv}
+                                    onChange={handlePaymentChange}
+                                    onBlur={handlePaymentBlur}
                                     className={`shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-300 rounded-md ${
-                                      errors.cvv ? 'border-red-300' : ''
+                                      paymentErrors.cvv ? 'border-red-300' : ''
                                     }`}
                                   />
-                                  {errors.cvv && (
-                                    <p className="mt-1 text-sm text-red-600">{errors.cvv}</p>
+                                  {paymentErrors.cvv && (
+                                    <p className="mt-1 text-sm text-red-600">{paymentErrors.cvv}</p>
                                   )}
                                 </div>
                               </div>
@@ -748,6 +810,8 @@ const Checkout = () => {
                                     id="saveCard"
                                     name="saveCard"
                                     type="checkbox"
+                                    checked={paymentValues.saveCard}
+                                    onChange={handlePaymentChange}
                                     className="h-4 w-4 text-primary focus:ring-primary border-neutral-300 rounded"
                                   />
                                   <label htmlFor="saveCard" className="ml-2 block text-sm text-neutral-700">
@@ -770,32 +834,17 @@ const Checkout = () => {
                           id="sameAsShipping"
                           name="sameAsShipping"
                           type="checkbox"
-                          defaultChecked
+                          checked={sameAsShipping}
+                          onChange={() => setSameAsShipping(!sameAsShipping)}
                           className="h-4 w-4 text-primary focus:ring-primary border-neutral-300 rounded"
                         />
                         <label htmlFor="sameAsShipping" className="ml-2 block text-sm text-neutral-700">
                           Same as shipping address
                         </label>
                       </div>
+                      
+                      {/* If not same as shipping, show billing address form here */}
                     </div>
-                    
-                    {/* Errors */}
-                    {errors.submit && (
-                      <div className="mt-6 bg-red-50 border border-red-200 rounded-md p-4">
-                        <div className="flex">
-                          <div className="flex-shrink-0">
-                            <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                            </svg>
-                          </div>
-                          <div className="ml-3">
-                            <h3 className="text-sm font-medium text-red-800">
-                              {errors.submit}
-                            </h3>
-                          </div>
-                        </div>
-                      </div>
-                    )}
                     
                     {/* Navigation Buttons */}
                     <div className="mt-8 grid grid-cols-2 gap-4">
@@ -808,10 +857,9 @@ const Checkout = () => {
                       </button>
                       <button
                         type="submit"
-                        disabled={loading}
-                        className="py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:bg-neutral-300 disabled:cursor-not-allowed"
+                        className="py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
                       >
-                        {loading ? 'Processing...' : 'Place Order'}
+                        Place Order
                       </button>
                     </div>
                   </div>
@@ -857,7 +905,7 @@ const Checkout = () => {
                                 </div>
                               )}
                             </div>
-                            <p className="text-sm font-medium text-neutral-900">₹{item.price * item.quantity}</p>
+                            <p className="text-sm font-medium text-neutral-900">{formatPrice(item.price * item.quantity)}</p>
                           </div>
                         </div>
                       </li>
@@ -869,13 +917,13 @@ const Checkout = () => {
                 <div className="space-y-3 border-t border-neutral-200 pt-4">
                   <div className="flex justify-between text-sm text-neutral-700">
                     <span>Subtotal</span>
-                    <span>₹{subtotal}</span>
+                    <span>{formatPrice(subtotal)}</span>
                   </div>
                   
                   {discount > 0 && (
                     <div className="flex justify-between text-sm text-green-600">
                       <span>Discount</span>
-                      <span>-₹{discount}</span>
+                      <span>-{formatPrice(discount)}</span>
                     </div>
                   )}
                   
@@ -885,7 +933,7 @@ const Checkout = () => {
                       {shippingCost === 0 ? (
                         <span className="text-green-600">Free</span>
                       ) : (
-                        `₹${shippingCost}`
+                        formatPrice(shippingCost)
                       )}
                     </span>
                   </div>
@@ -893,7 +941,7 @@ const Checkout = () => {
                   <div className="border-t border-neutral-200 pt-3 mt-3">
                     <div className="flex justify-between text-base font-bold text-neutral-900">
                       <span>Total</span>
-                      <span>₹{total}</span>
+                      <span>{formatPrice(total)}</span>
                     </div>
                     <p className="text-xs text-neutral-500 mt-1">
                       Inclusive of all taxes
