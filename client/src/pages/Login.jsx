@@ -2,14 +2,15 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import authService from '../services/auth.service';
 import useForm from '../hooks/useForm';
 import { isValidEmail } from '../utils/validation';
 
 const Login = () => {
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const { showSuccess, showError } = useNotification();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -22,7 +23,10 @@ const Login = () => {
       required: true,
       email: true,
       requiredMessage: 'Email is required',
-      patternMessage: 'Please enter a valid email address'
+      patternMessage: 'Please enter a valid email address',
+      validate: (value) => {
+        return isValidEmail(value) ? null : 'Please enter a valid email address';
+      }
     },
     password: {
       required: true,
@@ -33,7 +37,6 @@ const Login = () => {
   // Define onSubmit callback for useForm
   const onSubmit = async (values) => {
     try {
-      setError('');
       setLoading(true);
       
       // Call the login function from authService
@@ -46,12 +49,15 @@ const Login = () => {
         // Update auth context
         login(response);
         
+        // Show success message
+        showSuccess('Successfully logged in!');
+        
         // Redirect to the from path or home
         navigate(from, { replace: true });
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError(err.response?.data?.message || 'Failed to sign in. Please try again.');
+      showError(err.response?.data?.message || 'Failed to sign in. Please try again.');
       setLoading(false);
     }
   };
@@ -82,12 +88,6 @@ const Login = () => {
             </Link>
           </p>
         </div>
-        
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
-            {error}
-          </div>
-        )}
         
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm -space-y-px">

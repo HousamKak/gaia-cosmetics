@@ -1,6 +1,7 @@
 // frontend/src/pages/Home.jsx
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useNotification } from '../contexts/NotificationContext';
 import 'swiper/css';
 import 'swiper/css/pagination';
 
@@ -11,6 +12,7 @@ import categoryService from '../services/category.service';
 import { formatPrice } from '../utils/formatter';
 
 const Home = () => {
+  const { showError } = useNotification();
   const [heroContent, setHeroContent] = useState({
     title: 'Beautiful Cosmetics for Every Style',
     discount: 'UP TO 50% OFF',
@@ -19,6 +21,7 @@ const Home = () => {
   const [categories, setCategories] = useState([]);
   const [limitedEditions, setLimitedEditions] = useState([]);
   const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [bestSellers, setBestSellers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -55,7 +58,7 @@ const Home = () => {
               productCount: `${category.product_count || 0}+ products`
             }));
             
-            setCategories(formattedCategories.slice(0, 3)); // Limit to first 3 categories
+            setCategories(formattedCategories.slice(0, 4)); // Limit to first 4 categories
           }
         } catch (err) {
           console.error('Error fetching categories:', err);
@@ -105,23 +108,39 @@ const Home = () => {
         
         // Fetch featured products
         try {
-          const productsResponse = await productService.getProducts({ 
+          const featuredResponse = await productService.getProducts({ 
             limit: 4,
-            sort: 'popularity' 
+            sort: 'featured'
           });
           
-          if (productsResponse.data && productsResponse.data.products) {
-            setFeaturedProducts(productsResponse.data.products);
+          if (featuredResponse.data && featuredResponse.data.products) {
+            setFeaturedProducts(featuredResponse.data.products);
           }
         } catch (err) {
-          console.error('Error fetching products:', err);
+          console.error('Error fetching featured products:', err);
           setFeaturedProducts([]);
+        }
+        
+        // Fetch bestsellers
+        try {
+          const bestSellersResponse = await productService.getProducts({ 
+            limit: 4,
+            sort: 'popularity'
+          });
+          
+          if (bestSellersResponse.data && bestSellersResponse.data.products) {
+            setBestSellers(bestSellersResponse.data.products);
+          }
+        } catch (err) {
+          console.error('Error fetching bestseller products:', err);
+          setBestSellers([]);
         }
         
         setLoading(false);
       } catch (err) {
         console.error('Error fetching home data:', err);
         setError('Failed to load home content. Please refresh the page.');
+        showError('Failed to load home content. Please refresh the page.');
         setLoading(false);
       }
     };
@@ -129,24 +148,10 @@ const Home = () => {
     fetchHomeData();
   }, []);
 
-  if (loading) {
+  if (loading && !categories.length && !featuredProducts.length) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-red-500">{error}</p>
-        <button 
-          onClick={() => window.location.reload()}
-          className="mt-4 px-4 py-2 bg-primary text-neutral-900 rounded hover:bg-primary-dark"
-        >
-          Try Again
-        </button>
       </div>
     );
   }
@@ -184,7 +189,7 @@ const Home = () => {
       <section className="py-12">
         <div className="container mx-auto px-4">
           <h2 className="text-2xl font-heading font-bold mb-8">Shop By Categories</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             {categories.map((category) => (
               <Link 
                 key={category.id} 
@@ -249,11 +254,67 @@ const Home = () => {
       {/* Featured Products */}
       <section className="py-12">
         <div className="container mx-auto px-4">
-          <h2 className="text-2xl font-heading font-bold mb-8">Featured Products</h2>
+          <div className="flex justify-between items-center mb-8">
+            <h2 className="text-2xl font-heading font-bold">Featured Products</h2>
+            <Link 
+              to="/category/featured" 
+              className="text-neutral-600 hover:text-neutral-900"
+            >
+              View all
+            </Link>
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {featuredProducts.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
+          </div>
+        </div>
+      </section>
+      
+      {/* Bestsellers */}
+      <section className="py-12 bg-neutral-50">
+        <div className="container mx-auto px-4">
+          <div className="flex justify-between items-center mb-8">
+            <h2 className="text-2xl font-heading font-bold">Bestsellers</h2>
+            <Link 
+              to="/category/bestsellers" 
+              className="text-neutral-600 hover:text-neutral-900"
+            >
+              View all
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {bestSellers.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        </div>
+      </section>
+      
+      {/* Newsletter */}
+      <section className="py-12">
+        <div className="container mx-auto px-4">
+          <div className="bg-primary-light rounded-lg py-10 px-6 md:py-16 md:px-12">
+            <div className="max-w-xl mx-auto text-center">
+              <h2 className="text-2xl font-heading font-bold mb-4">Join Our Newsletter</h2>
+              <p className="text-neutral-700 mb-6">
+                Sign up to receive updates on new products, beauty tips, and exclusive offers.
+              </p>
+              <form className="flex flex-col sm:flex-row gap-3">
+                <input
+                  type="email"
+                  placeholder="Your email address"
+                  className="flex-grow px-4 py-3 rounded-md border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-primary"
+                  required
+                />
+                <button
+                  type="submit"
+                  className="bg-primary hover:bg-primary-dark text-white font-medium px-6 py-3 rounded-md transition-colors"
+                >
+                  Subscribe
+                </button>
+              </form>
+            </div>
           </div>
         </div>
       </section>
