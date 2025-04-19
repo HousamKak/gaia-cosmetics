@@ -8,12 +8,13 @@ import ProductCard from '../components/product/ProductCard';
 import contentService from '../services/content.service';
 import productService from '../services/product.service';
 import categoryService from '../services/category.service';
+import { formatPrice } from '../utils/formatter';
 
 const Home = () => {
   const [heroContent, setHeroContent] = useState({
-    title: '',
-    discount: '',
-    image: ''
+    title: 'Beautiful Cosmetics for Every Style',
+    discount: 'UP TO 50% OFF',
+    image: '/images/hero-banner.jpg'
   });
   const [categories, setCategories] = useState([]);
   const [limitedEditions, setLimitedEditions] = useState([]);
@@ -28,59 +29,93 @@ const Home = () => {
         setError(null);
         
         // Fetch hero content
-        const heroResponse = await contentService.getContentBySection('hero');
-        if (heroResponse.data) {
-          setHeroContent({
-            title: heroResponse.data.title?.value || '',
-            discount: heroResponse.data.discount?.value || '',
-            image: heroResponse.data.image?.value || '/images/hero-banner.jpg'
-          });
+        try {
+          const heroResponse = await contentService.getContentBySection('hero');
+          if (heroResponse.data) {
+            setHeroContent({
+              title: heroResponse.data.title?.value || 'Beautiful Cosmetics for Every Style',
+              discount: heroResponse.data.discount?.value || 'UP TO 50% OFF',
+              image: heroResponse.data.image?.value || '/images/hero-banner.jpg'
+            });
+          }
+        } catch (err) {
+          console.error('Error fetching hero content:', err);
+          // Keep default hero content on error
         }
         
         // Fetch categories
-        const categoryResponse = await categoryService.getAllCategories();
-        if (categoryResponse.data) {
-          // Format categories for display
-          const formattedCategories = categoryResponse.data.map(category => ({
-            id: category.id,
-            name: category.name,
-            image: category.image_path || '/images/category-placeholder.jpg',
-            productCount: `${category.product_count || 0}+ products`
-          }));
-          
-          setCategories(formattedCategories.slice(0, 3)); // Limit to first 3 categories
+        try {
+          const categoryResponse = await categoryService.getAllCategories();
+          if (categoryResponse.data) {
+            // Format categories for display
+            const formattedCategories = categoryResponse.data.map(category => ({
+              id: category.id,
+              name: category.name,
+              image: category.image_path || '/images/category-placeholder.jpg',
+              productCount: `${category.product_count || 0}+ products`
+            }));
+            
+            setCategories(formattedCategories.slice(0, 3)); // Limit to first 3 categories
+          }
+        } catch (err) {
+          console.error('Error fetching categories:', err);
+          setCategories([]);
         }
         
         // Fetch limited editions content
-        const limitedEditionsResponse = await contentService.getContentBySection('limited_editions');
-        if (limitedEditionsResponse.data) {
-          // Format limited editions for display
-          const limitedEditionsData = [
+        try {
+          const limitedEditionsResponse = await contentService.getContentBySection('limited_editions');
+          if (limitedEditionsResponse.data) {
+            // Format limited editions for display
+            const limitedEditionsData = [
+              {
+                id: 1,
+                name: limitedEditionsResponse.data.summer_title?.value || 'Summer Collection',
+                image: limitedEditionsResponse.data.summer_image?.value || '/images/limited-summer.jpg',
+                discount: limitedEditionsResponse.data.summer_discount?.value || '30% OFF'
+              },
+              {
+                id: 2,
+                name: limitedEditionsResponse.data.bridal_title?.value || 'Bridal Collection',
+                image: limitedEditionsResponse.data.bridal_image?.value || '/images/limited-bridal.jpg',
+                discount: limitedEditionsResponse.data.bridal_discount?.value || '20% OFF'
+              }
+            ];
+            
+            setLimitedEditions(limitedEditionsData);
+          }
+        } catch (err) {
+          console.error('Error fetching limited editions content:', err);
+          // Set default limited editions
+          setLimitedEditions([
             {
               id: 1,
-              name: limitedEditionsResponse.data.summer_title?.value || 'Summer Collection',
-              image: limitedEditionsResponse.data.summer_image?.value || '/images/limited-summer.jpg',
-              discount: limitedEditionsResponse.data.summer_discount?.value || '30% OFF'
+              name: 'Summer Collection',
+              image: '/images/limited-summer.jpg',
+              discount: '30% OFF'
             },
             {
               id: 2,
-              name: limitedEditionsResponse.data.bridal_title?.value || 'Bridal Collection',
-              image: limitedEditionsResponse.data.bridal_image?.value || '/images/limited-bridal.jpg',
-              discount: limitedEditionsResponse.data.bridal_discount?.value || '20% OFF'
+              name: 'Bridal Collection',
+              image: '/images/limited-bridal.jpg',
+              discount: '20% OFF'
             }
-          ];
-          
-          setLimitedEditions(limitedEditionsData);
+          ]);
         }
         
         // Fetch featured products
-        const productsResponse = await productService.getProducts({ 
-          limit: 4,
-          sort: 'popularity' 
-        });
-        
-        if (productsResponse.data && productsResponse.data.products) {
-          setFeaturedProducts(productsResponse.data.products);
+        try {
+          const productsResponse = await productService.getProducts({ 
+            limit: 4,
+            sort: 'popularity' 
+          });
+          
+          if (productsResponse.data && productsResponse.data.products) {
+            setFeaturedProducts(productsResponse.data.products);
+          }
+        } catch (err) {
+          console.error('Error fetching products:', err);
+          setFeaturedProducts([]);
         }
         
         setLoading(false);

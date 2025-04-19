@@ -1,6 +1,7 @@
 // frontend/src/components/layout/MobileBottomNav.jsx
-import { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { useIsMobile } from '../../hooks/useMediaQuery';
 import { 
   HomeIcon, 
   ShoppingBagIcon, 
@@ -18,18 +19,11 @@ import {
 } from '@heroicons/react/24/solid';
 
 const MobileBottomNav = () => {
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  // Use custom hook instead of manually checking window width
+  const isMobile = useIsMobile();
   const location = useLocation();
   
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
+  // Don't render the navigation if not on mobile
   if (!isMobile) return null;
 
   const navItems = [

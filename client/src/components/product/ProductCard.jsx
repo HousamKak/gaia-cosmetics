@@ -5,12 +5,15 @@ import { HeartIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid';
 import { useCart } from '../../contexts/CartContext';
 import { useWishlist } from '../../contexts/WishlistContext';
+import { formatPrice, formatDiscount } from '../../utils/formatter';
 
 const ProductCard = ({ product, onClick }) => {
   const { addToCart } = useCart();
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const [selectedColor, setSelectedColor] = useState(
-    product.colors && product.colors.length > 0 ? product.colors[0].value : null
+    product.colors && product.colors.length > 0 ? 
+      (typeof product.colors[0] === 'string' ? product.colors[0] : product.colors[0].value) : 
+      null
   );
 
   const toggleWishlist = (e) => {
@@ -101,28 +104,38 @@ const ProductCard = ({ product, onClick }) => {
           <h3 className="text-sm font-medium text-neutral-900">{product.name}</h3>
           <p className="text-xs text-neutral-500 mb-1">{product.category}</p>
           
-          {/* Price */}
+          {/* Price - Using the formatter utility */}
           <div className="flex items-center space-x-2">
-            <span className="font-bold text-neutral-900">₹{product.price}</span>
+            <span className="font-bold text-neutral-900">{formatPrice(product.price)}</span>
             {product.originalPrice > product.price && (
-              <span className="text-sm text-neutral-500 line-through">₹{product.originalPrice}</span>
+              <span className="text-sm text-neutral-500 line-through">{formatPrice(product.originalPrice)}</span>
             )}
           </div>
+
+          {/* Discount - Using the formatter utility */}
+          {product.originalPrice > product.price && (
+            <p className="text-sm text-accent">
+              {formatDiscount(product.originalPrice, product.price)}
+            </p>
+          )}
 
           {/* Color Options */}
           {product.colors && product.colors.length > 0 && (
             <div className="mt-2 flex space-x-1">
-              {product.colors.slice(0, 4).map((color, index) => (
-                <button
-                  key={index}
-                  style={{ backgroundColor: color.value }}
-                  className={`w-4 h-4 rounded-full border ${
-                    selectedColor === color.value ? 'ring-2 ring-neutral-900 ring-offset-1' : 'border-neutral-300'
-                  }`}
-                  onClick={(e) => handleColorSelect(e, color.value)}
-                  aria-label={`Select color ${color.name}`}
-                />
-              ))}
+              {product.colors.slice(0, 4).map((color, index) => {
+                const colorValue = typeof color === 'string' ? color : color.value;
+                return (
+                  <button
+                    key={index}
+                    style={{ backgroundColor: colorValue }}
+                    className={`w-4 h-4 rounded-full border ${
+                      selectedColor === colorValue ? 'ring-2 ring-neutral-900 ring-offset-1' : 'border-neutral-300'
+                    }`}
+                    onClick={(e) => handleColorSelect(e, colorValue)}
+                    aria-label={`Select color ${typeof color === 'string' ? '' : color.name}`}
+                  />
+                );
+              })}
               {product.colors.length > 4 && (
                 <span className="text-xs text-neutral-500 self-center">+{product.colors.length - 4}</span>
               )}

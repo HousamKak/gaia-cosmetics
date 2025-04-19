@@ -3,10 +3,10 @@ import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import authService from '../services/auth.service';
+import useForm from '../hooks/useForm';
+import { isValidEmail } from '../utils/validation';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
@@ -16,15 +16,31 @@ const Login = () => {
   // Get the redirect path from location state or default to home
   const from = location.state?.from?.pathname || '/';
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
+  // Define validation rules for the form
+  const validationRules = {
+    email: {
+      required: true,
+      email: true,
+      requiredMessage: 'Email is required',
+      patternMessage: 'Please enter a valid email address'
+    },
+    password: {
+      required: true,
+      requiredMessage: 'Password is required'
+    }
+  };
+
+  // Define onSubmit callback for useForm
+  const onSubmit = async (values) => {
     try {
       setError('');
       setLoading(true);
       
       // Call the login function from authService
-      const response = await authService.login({ email, password });
+      const response = await authService.login({ 
+        email: values.email, 
+        password: values.password 
+      });
       
       if (response) {
         // Update auth context
@@ -39,6 +55,18 @@ const Login = () => {
       setLoading(false);
     }
   };
+
+  // Use custom form hook
+  const { 
+    values, 
+    errors, 
+    handleChange, 
+    handleSubmit 
+  } = useForm(
+    { email: '', password: '', rememberMe: false },
+    validationRules,
+    onSubmit
+  );
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-neutral-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -64,20 +92,25 @@ const Login = () => {
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
-              <label htmlFor="email-address" className="sr-only">
+              <label htmlFor="email" className="sr-only">
                 Email address
               </label>
               <input
-                id="email-address"
+                id="email"
                 name="email"
                 type="email"
                 autoComplete="email"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-neutral-300 placeholder-neutral-500 text-neutral-900 rounded-t-md focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm"
+                value={values.email}
+                onChange={handleChange}
+                className={`appearance-none rounded-none relative block w-full px-3 py-2 border ${
+                  errors.email ? 'border-red-300' : 'border-neutral-300'
+                } placeholder-neutral-500 text-neutral-900 rounded-t-md focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm`}
                 placeholder="Email address"
               />
+              {errors.email && (
+                <p className="mt-1 text-xs text-red-600">{errors.email}</p>
+              )}
             </div>
             <div>
               <label htmlFor="password" className="sr-only">
@@ -89,23 +122,30 @@ const Login = () => {
                 type="password"
                 autoComplete="current-password"
                 required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-neutral-300 placeholder-neutral-500 text-neutral-900 rounded-b-md focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm"
+                value={values.password}
+                onChange={handleChange}
+                className={`appearance-none rounded-none relative block w-full px-3 py-2 border ${
+                  errors.password ? 'border-red-300' : 'border-neutral-300'
+                } placeholder-neutral-500 text-neutral-900 rounded-b-md focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm`}
                 placeholder="Password"
               />
+              {errors.password && (
+                <p className="mt-1 text-xs text-red-600">{errors.password}</p>
+              )}
             </div>
           </div>
 
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <input
-                id="remember-me"
-                name="remember-me"
+                id="rememberMe"
+                name="rememberMe"
                 type="checkbox"
+                checked={values.rememberMe}
+                onChange={handleChange}
                 className="h-4 w-4 text-primary focus:ring-primary border-neutral-300 rounded"
               />
-              <label htmlFor="remember-me" className="ml-2 block text-sm text-neutral-900">
+              <label htmlFor="rememberMe" className="ml-2 block text-sm text-neutral-900">
                 Remember me
               </label>
             </div>

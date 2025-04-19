@@ -1,7 +1,7 @@
 // frontend/src/contexts/WishlistContext.jsx
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
-import axios from 'axios';
+import useLocalStorage from '../hooks/useLocalStorage';
 
 const WishlistContext = createContext();
 
@@ -10,43 +10,23 @@ export const useWishlist = () => {
 };
 
 export const WishlistProvider = ({ children }) => {
-  const [wishlistItems, setWishlistItems] = useState([]);
+  // Use useLocalStorage hook instead of manual localStorage manipulation
+  const [wishlistItems, setWishlistItems] = useLocalStorage('gaia-wishlist', []);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
-  // Load wishlist from localStorage or API based on authentication status
+  // Load wishlist from API if user is logged in
   useEffect(() => {
     const fetchWishlist = async () => {
       setLoading(true);
       
       try {
         if (user) {
-          // For logged-in users, fetch from API
+          // For logged-in users, we should fetch from API
+          // But we'll still use the local storage for now
           // This would be replaced with a real API call in production
           // const response = await axios.get('/api/wishlist');
           // setWishlistItems(response.data);
-          
-          // For now, we'll use localStorage even for logged-in users
-          const storedWishlist = localStorage.getItem('gaia-wishlist');
-          if (storedWishlist) {
-            try {
-              setWishlistItems(JSON.parse(storedWishlist));
-            } catch (error) {
-              console.error('Failed to parse wishlist from localStorage', error);
-              setWishlistItems([]);
-            }
-          }
-        } else {
-          // For guests, use localStorage
-          const storedWishlist = localStorage.getItem('gaia-wishlist');
-          if (storedWishlist) {
-            try {
-              setWishlistItems(JSON.parse(storedWishlist));
-            } catch (error) {
-              console.error('Failed to parse wishlist from localStorage', error);
-              setWishlistItems([]);
-            }
-          }
         }
       } catch (error) {
         console.error('Error fetching wishlist:', error);
@@ -58,16 +38,11 @@ export const WishlistProvider = ({ children }) => {
     fetchWishlist();
   }, [user]);
 
-  // Save wishlist to localStorage whenever it changes
+  // Sync wishlist with backend if user is logged in
   useEffect(() => {
-    if (!loading) {
-      localStorage.setItem('gaia-wishlist', JSON.stringify(wishlistItems));
-      
-      // If user is logged in, sync with backend
-      if (user) {
-        // In a real app, you would call an API to sync the wishlist
-        // axios.post('/api/wishlist/sync', { items: wishlistItems });
-      }
+    if (!loading && user) {
+      // In a real app, you would call an API to sync the wishlist
+      // axios.post('/api/wishlist/sync', { items: wishlistItems });
     }
   }, [wishlistItems, loading, user]);
 

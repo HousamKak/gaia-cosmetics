@@ -1,5 +1,6 @@
 // frontend/src/contexts/CartContext.jsx
 import { createContext, useContext, useState, useEffect } from 'react';
+import useLocalStorage from '../hooks/useLocalStorage';
 
 const CartContext = createContext();
 
@@ -8,30 +9,12 @@ export const useCart = () => {
 };
 
 export const CartProvider = ({ children }) => {
-  const [cartItems, setCartItems] = useState([]);
+  // Use useLocalStorage hook instead of manual localStorage manipulation
+  const [cartItems, setCartItems] = useLocalStorage('gaia-cart', []);
   const [subtotal, setSubtotal] = useState(0);
   const [discount, setDiscount] = useState(0);
   const [shippingCost, setShippingCost] = useState(0);
   const [total, setTotal] = useState(0);
-
-  // Load cart from localStorage on initial render
-  useEffect(() => {
-    const storedCart = localStorage.getItem('gaia-cart');
-    if (storedCart) {
-      try {
-        const parsedCart = JSON.parse(storedCart);
-        setCartItems(parsedCart);
-      } catch (error) {
-        console.error('Failed to parse cart from localStorage', error);
-        localStorage.removeItem('gaia-cart');
-      }
-    }
-  }, []);
-
-  // Update localStorage when cart changes
-  useEffect(() => {
-    localStorage.setItem('gaia-cart', JSON.stringify(cartItems));
-  }, [cartItems]);
 
   // Calculate totals whenever cart changes
   useEffect(() => {

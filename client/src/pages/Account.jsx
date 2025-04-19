@@ -1,8 +1,8 @@
-// frontend/src/pages/Account.jsx
+// client/src/pages/Account.jsx
 import { useState, useEffect } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import axios from 'axios';
+import userService from '../services/user.service';
 import orderService from '../services/order.service';
 import { 
   UserIcon, 
@@ -17,8 +17,19 @@ const Account = () => {
   const { user, logout, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
   const [orders, setOrders] = useState([]);
+  const [addresses, setAddresses] = useState([]);
+  const [paymentMethods, setPaymentMethods] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [formData, setFormData] = useState({
+    name: user?.name || '',
+    email: user?.email || '',
+    phone: '',
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [successMessage, setSuccessMessage] = useState('');
   const navigate = useNavigate();
 
   // Redirect to login if not authenticated
@@ -35,13 +46,32 @@ const Account = () => {
         setLoading(true);
         setError(null);
 
-        // Fetch real orders from API
-        const ordersResponse = await orderService.getUserOrders();
+        // Get user addresses
+        try {
+          const addressesResponse = await userService.getUserAddresses();
+          setAddresses(addressesResponse.data || []);
+        } catch (err) {
+          console.error('Error fetching addresses:', err);
+        }
 
-        if (ordersResponse.data && ordersResponse.data.orders) {
-          setOrders(ordersResponse.data.orders);
-        } else {
-          setOrders([]);
+        // Get user payment methods
+        try {
+          const paymentMethodsResponse = await userService.getUserPaymentMethods();
+          setPaymentMethods(paymentMethodsResponse.data || []);
+        } catch (err) {
+          console.error('Error fetching payment methods:', err);
+        }
+
+        // Fetch real orders from API
+        try {
+          const ordersResponse = await orderService.getUserOrders();
+          if (ordersResponse.data && ordersResponse.data.orders) {
+            setOrders(ordersResponse.data.orders);
+          } else {
+            setOrders([]);
+          }
+        } catch (err) {
+          console.error('Error fetching orders:', err);
         }
 
         setLoading(false);
@@ -54,6 +84,129 @@ const Account = () => {
 
     fetchUserData();
   }, [user]);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prevState => ({
+      ...prevState,
+      [name]: value
+    }));
+  };
+
+  const handleProfileUpdate = async (e) => {
+    e.preventDefault();
+    
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await userService.updateUserProfile({
+        name: formData.name,
+        phone: formData.phone
+      });
+      
+      // Update local user data
+      if (response.data) {
+        // Show success message
+        setSuccessMessage('Profile updated successfully');
+        setTimeout(() => setSuccessMessage(''), 3000);
+      }
+      
+      setLoading(false);
+    } catch (err) {
+      console.error('Error updating profile:', err);
+      setError('Failed to update profile. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+    
+    // Validate passwords
+    if (formData.newPassword !== formData.confirmPassword) {
+      setError('New passwords do not match');
+      return;
+    }
+    
+    if (formData.newPassword.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      setError(null);
+
+      await userService.changePassword(
+        formData.currentPassword,
+        formData.newPassword
+      );
+      
+      // Show success message and reset password fields
+      setSuccessMessage('Password changed successfully');
+      setTimeout(() => setSuccessMessage(''), 3000);
+      
+      setFormData(prevState => ({
+        ...prevState,
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      }));
+      
+      setLoading(false);
+    } catch (err) {
+      console.error('Error changing password:', err);
+      setError(err.response?.data?.message || 'Failed to change password. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  const handleAddAddress = async (addressData) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await userService.addAddress(addressData);
+      
+      if (response.data) {
+        // Add the new address to the state
+        setAddresses(prev => [...prev, response.data]);
+        setSuccessMessage('Address added successfully');
+        setTimeout(() => setSuccessMessage(''), 3000);
+      }
+      
+      setLoading(false);
+    } catch (err) {
+      console.error('Error adding address:', err);
+      setError('Failed to add address. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteAddress = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this address?')) {
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      await userService.deleteAddress(id);
+      
+      // Remove the address from the state
+      setAddresses(prev => prev.filter(address => address.id !== id));
+      setSuccessMessage('Address deleted successfully');
+      setTimeout(() => setSuccessMessage(''), 3000);
+      
+      setLoading(false);
+    } catch (err) {
+      console.error('Error deleting address:', err);
+      setError('Failed to delete address. Please try again.');
+      setLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -68,6 +221,12 @@ const Account = () => {
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
             {error}
+          </div>
+        )}
+        
+        {successMessage && (
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
+            {successMessage}
           </div>
         )}
         
@@ -193,7 +352,7 @@ const Account = () => {
                     <h2 className="text-lg font-medium text-neutral-900">Profile Information</h2>
                   </div>
                   <div className="p-6">
-                    <form className="space-y-6">
+                    <form className="space-y-6" onSubmit={handleProfileUpdate}>
                       <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
                         <div className="sm:col-span-3">
                           <label htmlFor="name" className="block text-sm font-medium text-neutral-700">
@@ -204,7 +363,8 @@ const Account = () => {
                               type="text"
                               name="name"
                               id="name"
-                              defaultValue={user.name}
+                              value={formData.name}
+                              onChange={handleInputChange}
                               className="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-300 rounded-md"
                             />
                           </div>
@@ -219,7 +379,7 @@ const Account = () => {
                               type="email"
                               name="email"
                               id="email"
-                              defaultValue={user.email}
+                              value={formData.email}
                               disabled
                               className="shadow-sm bg-neutral-100 focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-300 rounded-md"
                             />
@@ -236,7 +396,8 @@ const Account = () => {
                               type="tel"
                               name="phone"
                               id="phone"
-                              defaultValue="+91 9876543210"
+                              value={formData.phone}
+                              onChange={handleInputChange}
                               className="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-300 rounded-md"
                             />
                           </div>
@@ -245,9 +406,10 @@ const Account = () => {
                         <div className="sm:col-span-6">
                           <button
                             type="submit"
+                            disabled={loading}
                             className="mt-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
                           >
-                            Save Changes
+                            {loading ? 'Saving...' : 'Save Changes'}
                           </button>
                         </div>
                       </div>
@@ -255,17 +417,19 @@ const Account = () => {
                     
                     <div className="mt-10 pt-6 border-t border-neutral-200">
                       <h3 className="text-base font-medium text-neutral-900">Change Password</h3>
-                      <form className="mt-4 space-y-6">
+                      <form className="mt-4 space-y-6" onSubmit={handlePasswordChange}>
                         <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
                           <div className="sm:col-span-3">
-                            <label htmlFor="current-password" className="block text-sm font-medium text-neutral-700">
+                            <label htmlFor="currentPassword" className="block text-sm font-medium text-neutral-700">
                               Current Password
                             </label>
                             <div className="mt-1">
                               <input
                                 type="password"
-                                name="current-password"
-                                id="current-password"
+                                name="currentPassword"
+                                id="currentPassword"
+                                value={formData.currentPassword}
+                                onChange={handleInputChange}
                                 className="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-300 rounded-md"
                               />
                             </div>
@@ -274,28 +438,32 @@ const Account = () => {
                           <div className="sm:col-span-6">
                             <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
                               <div>
-                                <label htmlFor="new-password" className="block text-sm font-medium text-neutral-700">
+                                <label htmlFor="newPassword" className="block text-sm font-medium text-neutral-700">
                                   New Password
                                 </label>
                                 <div className="mt-1">
                                   <input
                                     type="password"
-                                    name="new-password"
-                                    id="new-password"
+                                    name="newPassword"
+                                    id="newPassword"
+                                    value={formData.newPassword}
+                                    onChange={handleInputChange}
                                     className="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-300 rounded-md"
                                   />
                                 </div>
                               </div>
                               
                               <div>
-                                <label htmlFor="confirm-password" className="block text-sm font-medium text-neutral-700">
+                                <label htmlFor="confirmPassword" className="block text-sm font-medium text-neutral-700">
                                   Confirm New Password
                                 </label>
                                 <div className="mt-1">
                                   <input
                                     type="password"
-                                    name="confirm-password"
-                                    id="confirm-password"
+                                    name="confirmPassword"
+                                    id="confirmPassword"
+                                    value={formData.confirmPassword}
+                                    onChange={handleInputChange}
                                     className="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-neutral-300 rounded-md"
                                   />
                                 </div>
@@ -306,9 +474,10 @@ const Account = () => {
                           <div className="sm:col-span-6">
                             <button
                               type="submit"
+                              disabled={loading}
                               className="mt-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
                             >
-                              Update Password
+                              {loading ? 'Updating...' : 'Update Password'}
                             </button>
                           </div>
                         </div>
@@ -346,12 +515,14 @@ const Account = () => {
                             <div className="bg-neutral-50 px-6 py-4 flex justify-between items-center">
                               <div>
                                 <div className="flex items-center">
-                                  <h3 className="text-sm font-medium text-neutral-900">Order #{order.id}</h3>
+                                  <h3 className="text-sm font-medium text-neutral-900">Order #{order.orderNumber || order.id}</h3>
                                   <span className="ml-2 px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800">
                                     {order.status}
                                   </span>
                                 </div>
-                                <p className="text-xs text-neutral-500 mt-1">Placed on {order.date}</p>
+                                <p className="text-xs text-neutral-500 mt-1">
+                                  Placed on {new Date(order.created_at || order.createdAt).toLocaleDateString()}
+                                </p>
                               </div>
                               <div className="text-right">
                                 <p className="text-sm font-medium text-neutral-900">₹{order.total}</p>
@@ -364,10 +535,10 @@ const Account = () => {
                               </div>
                             </div>
                             <div className="px-6 py-4 divide-y divide-neutral-200">
-                              {order.items.map((item, index) => (
+                              {(order.items || []).map((item, index) => (
                                 <div key={index} className="py-4 flex items-center">
                                   <div className="flex-grow">
-                                    <h4 className="text-sm font-medium text-neutral-900">{item.name}</h4>
+                                    <h4 className="text-sm font-medium text-neutral-900">{item.product_name || item.name}</h4>
                                     <p className="text-sm text-neutral-500">Qty: {item.quantity}</p>
                                   </div>
                                   <div className="text-sm font-medium text-neutral-900">
@@ -391,36 +562,50 @@ const Account = () => {
                     <h2 className="text-lg font-medium text-neutral-900">Saved Addresses</h2>
                   </div>
                   <div className="p-6">
-                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                      {/* Existing Address */}
-                      <div className="border border-neutral-200 rounded-lg p-4">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h3 className="text-sm font-medium text-neutral-900">Home</h3>
-                            <address className="mt-2 not-italic text-sm text-neutral-600">
-                              <p>John Doe</p>
-                              <p>123 Main Street, Apartment 4B</p>
-                              <p>Mumbai, Maharashtra 400001</p>
-                              <p>India</p>
-                              <p className="mt-2">+91 9876543210</p>
-                            </address>
+                    {loading ? (
+                      <div className="flex justify-center py-6">
+                        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                        {/* Existing Addresses */}
+                        {addresses.map((address) => (
+                          <div key={address.id} className="border border-neutral-200 rounded-lg p-4">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h3 className="text-sm font-medium text-neutral-900">{address.name}</h3>
+                                <address className="mt-2 not-italic text-sm text-neutral-600">
+                                  <p>{address.name}</p>
+                                  <p>{address.address}</p>
+                                  <p>{address.city}, {address.state} {address.postal_code}</p>
+                                  <p>{address.country}</p>
+                                  <p className="mt-2">{address.phone}</p>
+                                </address>
+                              </div>
+                              <div className="flex space-x-2">
+                                <button className="text-indigo-600 hover:text-indigo-900 text-sm">Edit</button>
+                                <button 
+                                  onClick={() => handleDeleteAddress(address.id)} 
+                                  className="text-red-600 hover:text-red-900 text-sm"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
                           </div>
-                          <div className="flex space-x-2">
-                            <button className="text-indigo-600 hover:text-indigo-900 text-sm">Edit</button>
-                            <button className="text-red-600 hover:text-red-900 text-sm">Delete</button>
-                          </div>
+                        ))}
+                        
+                        {/* Add New Address */}
+                        <div className="border border-dashed border-neutral-300 rounded-lg p-4 flex items-center justify-center">
+                          <button
+                            onClick={() => {/* Open address form modal */}}
+                            className="text-primary hover:text-primary-dark text-sm font-medium"
+                          >
+                            + Add New Address
+                          </button>
                         </div>
                       </div>
-                      
-                      {/* Add New Address */}
-                      <div className="border border-dashed border-neutral-300 rounded-lg p-4 flex items-center justify-center">
-                        <button
-                          className="text-primary hover:text-primary-dark text-sm font-medium"
-                        >
-                          + Add New Address
-                        </button>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -432,32 +617,52 @@ const Account = () => {
                     <h2 className="text-lg font-medium text-neutral-900">Saved Payment Methods</h2>
                   </div>
                   <div className="p-6">
-                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                      {/* Existing Payment Method */}
-                      <div className="border border-neutral-200 rounded-lg p-4">
-                        <div className="flex justify-between items-start">
-                          <div className="flex items-center">
-                            <img src="/icons/mastercard.svg" alt="Mastercard" className="h-8 w-12" />
-                            <div className="ml-3">
-                              <h3 className="text-sm font-medium text-neutral-900">Mastercard ending in 1234</h3>
-                              <p className="text-sm text-neutral-500">Expires 06/2025</p>
+                    {loading ? (
+                      <div className="flex justify-center py-6">
+                        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                        {/* Existing Payment Methods */}
+                        {paymentMethods.map((method) => (
+                          <div key={method.id} className="border border-neutral-200 rounded-lg p-4">
+                            <div className="flex justify-between items-start">
+                              <div className="flex items-center">
+                                <img 
+                                  src={`/icons/${method.card_type.toLowerCase()}.svg`} 
+                                  alt={method.card_type} 
+                                  className="h-8 w-12" 
+                                />
+                                <div className="ml-3">
+                                  <h3 className="text-sm font-medium text-neutral-900">
+                                    {method.card_type} ending in {method.last_four}
+                                  </h3>
+                                  <p className="text-sm text-neutral-500">
+                                    Expires {method.expiry_month}/{method.expiry_year}
+                                  </p>
+                                </div>
+                              </div>
+                              <button 
+                                className="text-red-600 hover:text-red-900 text-sm"
+                                onClick={() => {/* Delete payment method */}}
+                              >
+                                Remove
+                              </button>
                             </div>
                           </div>
-                          <div className="flex space-x-2">
-                            <button className="text-red-600 hover:text-red-900 text-sm">Remove</button>
-                          </div>
+                        ))}
+                        
+                        {/* Add New Payment Method */}
+                        <div className="border border-dashed border-neutral-300 rounded-lg p-4 flex items-center justify-center">
+                          <button
+                            className="text-primary hover:text-primary-dark text-sm font-medium"
+                            onClick={() => {/* Open payment method form modal */}}
+                          >
+                            + Add New Payment Method
+                          </button>
                         </div>
                       </div>
-                      
-                      {/* Add New Payment Method */}
-                      <div className="border border-dashed border-neutral-300 rounded-lg p-4 flex items-center justify-center">
-                        <button
-                          className="text-primary hover:text-primary-dark text-sm font-medium"
-                        >
-                          + Add New Payment Method
-                        </button>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               )}

@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { useIsMobile } from '../../hooks/useMediaQuery';
+import useOutsideClick from '../../hooks/useOutsideClick';
 
 // Icons
 import { 
@@ -15,7 +17,6 @@ import {
 } from '@heroicons/react/24/outline';
 
 const Header = () => {
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -23,15 +24,18 @@ const Header = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   
-  // Update isMobile state on window resize
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  // Use custom media query hook instead of manual window width handling
+  const isMobile = useIsMobile();
+  
+  // Use outside click hook to close mobile menu when clicking outside
+  const mobileMenuRef = useOutsideClick(() => {
+    if (mobileMenuOpen) setMobileMenuOpen(false);
+  });
+  
+  // Use outside click hook to close search when clicking outside
+  const searchRef = useOutsideClick(() => {
+    if (searchOpen) setSearchOpen(false);
+  });
 
   const categories = [
     { name: 'Makeup', icon: '/icons/makeup-icon.svg' },
@@ -124,7 +128,7 @@ const Header = () => {
 
       {/* Search bar (shows when search is clicked) */}
       {searchOpen && (
-        <div className="container mx-auto px-4 py-3 border-t border-neutral-200">
+        <div ref={searchRef} className="container mx-auto px-4 py-3 border-t border-neutral-200">
           <form onSubmit={handleSearch} className="flex items-center">
             <input
               type="text"
@@ -132,6 +136,7 @@ const Header = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="flex-grow px-4 py-2 border border-neutral-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-primary"
+              autoFocus
             />
             <button 
               type="submit"
@@ -165,7 +170,7 @@ const Header = () => {
 
       {/* Mobile menu */}
       {isMobile && mobileMenuOpen && (
-        <div className="bg-white border-b border-neutral-200 py-4">
+        <div ref={mobileMenuRef} className="bg-white border-b border-neutral-200 py-4">
           <div className="container mx-auto px-4">
             <nav className="space-y-4">
               <Link 
