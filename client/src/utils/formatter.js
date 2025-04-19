@@ -10,7 +10,7 @@ export const formatPrice = (price, currency = 'INR') => {
     if (price === null || price === undefined) return '';
     
     const currencySymbols = {
-      INR: '₹',
+      INR: '$',
       USD: '$',
       EUR: '€',
       GBP: '£',

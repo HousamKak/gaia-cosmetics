@@ -121,10 +121,10 @@ const Wishlist = () => {
                               
                               {/* Pricing */}
                               <div className="mt-2">
-                                <p className="text-base font-medium text-neutral-900">₹{item.price}</p>
+                                <p className="text-base font-medium text-neutral-900">${item.price}</p>
                                 {item.originalPrice > item.price && (
                                   <div className="flex items-center">
-                                    <p className="text-sm text-neutral-500 line-through mr-2">₹{item.originalPrice}</p>
+                                    <p className="text-sm text-neutral-500 line-through mr-2">${item.originalPrice}</p>
                                     <p className="text-sm text-accent">
                                       {Math.round((item.originalPrice - item.price) / item.originalPrice * 100)}% OFF
                                     </p>

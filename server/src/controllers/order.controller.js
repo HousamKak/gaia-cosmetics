@@ -592,7 +592,7 @@ exports.validatePromoCode = (req, res) => {
         code: promoCode.code,
         discountType: promoCode.discount_type,
         discountValue: promoCode.discount_value,
-        message: `${promoCode.discount_type === 'percentage' ? promoCode.discount_value + '%' : '₹' + promoCode.discount_value} discount applied`
+        message: `${promoCode.discount_type === 'percentage' ? promoCode.discount_value + '%' : '$' + promoCode.discount_value} discount applied`
       });
     }
   );

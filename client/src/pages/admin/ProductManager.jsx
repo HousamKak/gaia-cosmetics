@@ -340,9 +340,9 @@ const ProductManager = () => {
                       <div className="text-sm text-neutral-900">{product.category}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-neutral-900">₹{product.price}</div>
+                      <div className="text-sm text-neutral-900">${product.price}</div>
                       {product.originalPrice > product.price && (
-                        <div className="text-xs text-neutral-500 line-through">₹{product.originalPrice}</div>
+                        <div className="text-xs text-neutral-500 line-through">${product.originalPrice}</div>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

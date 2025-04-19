@@ -168,9 +168,9 @@ const ProductDetail = () => {
             
             {/* Pricing */}
             <div className="mt-4 flex items-center space-x-4">
-              <span className="text-2xl font-bold">₹{product.price}</span>
+              <span className="text-2xl font-bold">${product.price}</span>
               {product.originalPrice > product.price && (
-                <span className="text-neutral-500 line-through">₹{product.originalPrice}</span>
+                <span className="text-neutral-500 line-through">${product.originalPrice}</span>
               )}
               {product.discountPercentage > 0 && (
                 <span className="text-accent font-bold">({product.discountPercentage}% OFF)</span>
@@ -257,7 +257,7 @@ const ProductDetail = () => {
             {/* Return Policy */}
             <div className="mt-6 flex items-center text-sm text-neutral-500">
               <TruckIcon className="h-5 w-5 mr-2" />
-              <span>Free shipping on orders over ₹999</span>
+              <span>Free shipping on orders over $999</span>
             </div>
             <div className="mt-2 flex items-center text-sm text-neutral-500">
               <ShieldCheckIcon className="h-5 w-5 mr-2" />
