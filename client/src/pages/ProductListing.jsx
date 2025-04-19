@@ -7,7 +7,8 @@ import {
 } from '@heroicons/react/24/outline';
 import ProductCard from '../components/product/ProductCard';
 import FilterSidebar from '../components/product/FilterSidebar';
-import { ProductSkeleton, SkeletonLoader } from '../components/product/ProductSkeleton';
+import { ProductSkeleton } from '../components/product/ProductSkeleton';
+import { SkeletonLoader } from '../components/common/SkeletonLoader';
 import { useNotification } from '../contexts/NotificationContext';
 import { debounce } from '../utils/helpers';
 import categoryService from '../services/category.service';
