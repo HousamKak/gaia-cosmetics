@@ -2,6 +2,7 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('../db/database');
+const config = require('../config/env.config');
 
 // Register new user
 exports.register = (req, res) => {
@@ -37,11 +38,11 @@ exports.register = (req, res) => {
             return res.status(500).json({ message: err.message });
           }
           
-          // Generate JWT token
+          // Generate JWT token using secret from config
           const token = jwt.sign(
             { id: this.lastID },
-            process.env.JWT_SECRET || 'your-secret-key',
-            { expiresIn: '24h' }
+            config.jwt.secret,
+            { expiresIn: config.jwt.expiresIn }
           );
           
           // Return user info and token
@@ -87,11 +88,11 @@ exports.login = (req, res) => {
         return res.status(401).json({ message: 'Invalid email or password' });
       }
       
-      // Generate JWT token
+      // Generate JWT token using secret from config
       const token = jwt.sign(
         { id: user.id },
-        process.env.JWT_SECRET || 'your-secret-key',
-        { expiresIn: '24h' }
+        config.jwt.secret,
+        { expiresIn: config.jwt.expiresIn }
       );
       
       // Return user info and token (excluding password)
@@ -128,6 +129,11 @@ exports.changePassword = (req, res) => {
   // Validate input
   if (!currentPassword || !newPassword) {
     return res.status(400).json({ message: 'Current and new passwords are required' });
+  }
+  
+  // Validate new password length
+  if (newPassword.length < 6) {
+    return res.status(400).json({ message: 'New password must be at least 6 characters' });
   }
   
   // Get user with password

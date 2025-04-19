@@ -3,16 +3,34 @@ const express = require('express');
 const router = express.Router();
 const productController = require('../controllers/product.controller');
 const { verifyToken, isAdmin } = require('../middleware/auth.middleware');
-const { upload, handleUploadError } = require('../middleware/upload.middleware');
+const { upload, optimizeImage, createWebpVersion, handleUploadError } = require('../middleware/upload.middleware');
+const { validateProductData } = require('../middleware/validation.middleware');
+const { apiLimiter } = require('../middleware/security.middleware');
 
-// Public routes
-router.get('/', productController.getAllProducts);
-router.get('/:id', productController.getProductById);
+// Apply rate limiting to public routes
+router.get('/', apiLimiter, productController.getAllProducts);
+router.get('/:id', apiLimiter, productController.getProductById);
 
 // Protected routes - admin only
-router.post('/', verifyToken, isAdmin, productController.createProduct);
-router.put('/:id', verifyToken, isAdmin, productController.updateProduct);
-router.delete('/:id', verifyToken, isAdmin, productController.deleteProduct);
+router.post('/', 
+  verifyToken, 
+  isAdmin, 
+  validateProductData, 
+  productController.createProduct
+);
+
+router.put('/:id', 
+  verifyToken, 
+  isAdmin, 
+  validateProductData, 
+  productController.updateProduct
+);
+
+router.delete('/:id', 
+  verifyToken, 
+  isAdmin, 
+  productController.deleteProduct
+);
 
 // Product images
 router.post(
@@ -20,6 +38,8 @@ router.post(
   verifyToken,
   isAdmin,
   upload.single('image'),
+  optimizeImage,
+  createWebpVersion,
   handleUploadError,
   productController.addProductImage
 );

@@ -2,6 +2,7 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const sharp = require('sharp');
 
 // Create uploads directory if it doesn't exist
 const uploadDir = path.join(__dirname, '../../uploads');
@@ -64,6 +65,61 @@ const upload = multer({
   fileFilter: fileFilter
 });
 
+// Image optimization middleware
+const optimizeImage = async (req, res, next) => {
+  if (!req.file) {
+    return next();
+  }
+
+  try {
+    const filePath = req.file.path;
+    const optimizedImageBuffer = await sharp(filePath)
+      .resize({
+        width: 1200,
+        height: 1200,
+        fit: sharp.fit.inside,
+        withoutEnlargement: true
+      })
+      .jpeg({ quality: 80 })
+      .toBuffer();
+
+    // Save the optimized image back to the same path
+    await fs.promises.writeFile(filePath, optimizedImageBuffer);
+    
+    next();
+  } catch (error) {
+    next(new Error(`Image optimization failed: ${error.message}`));
+  }
+};
+
+// Create webp version middleware (for better performance)
+const createWebpVersion = async (req, res, next) => {
+  if (!req.file) {
+    return next();
+  }
+
+  try {
+    const filePath = req.file.path;
+    const fileExt = path.extname(filePath);
+    const webpPath = filePath.replace(fileExt, '.webp');
+
+    // Generate webp version
+    await sharp(filePath)
+      .webp({ quality: 80 })
+      .toFile(webpPath);
+
+    // Add webp path to request for potential use in controllers
+    req.file.webpPath = webpPath;
+    req.file.webpUrl = req.file.path.replace(fileExt, '.webp').replace(/^.*\/uploads/, '/uploads');
+    
+    next();
+  } catch (error) {
+    // Don't fail if webp conversion fails, just log and continue
+    console.error(`WebP conversion failed: ${error.message}`);
+    next();
+  }
+};
+
 // Error handling middleware for multer errors
 const handleUploadError = (err, req, res, next) => {
   if (err instanceof multer.MulterError) {
@@ -77,7 +133,28 @@ const handleUploadError = (err, req, res, next) => {
   next();
 };
 
+// Helper to ensure upload directories exist
+const ensureUploadDirectories = () => {
+  // This function can be called on server startup
+  console.log('Ensuring upload directories exist...');
+  
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+
+  [productImagesDir, categoryImagesDir, contentImagesDir].forEach(dir => {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  });
+  
+  console.log('Upload directories verified.');
+};
+
 module.exports = {
   upload,
-  handleUploadError
+  optimizeImage,
+  createWebpVersion,
+  handleUploadError,
+  ensureUploadDirectories
 };

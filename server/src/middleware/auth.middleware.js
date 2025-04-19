@@ -1,6 +1,7 @@
 // backend/src/middleware/auth.middleware.js
 const jwt = require('jsonwebtoken');
 const db = require('../db/database');
+const config = require('../config/env.config');
 
 // Middleware to verify JWT token
 const verifyToken = (req, res, next) => {
@@ -17,8 +18,8 @@ const verifyToken = (req, res, next) => {
   }
   
   try {
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    // Verify token using the secret from config
+    const decoded = jwt.verify(token, config.jwt.secret);
     req.userId = decoded.id;
     
     next();
