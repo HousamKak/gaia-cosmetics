@@ -5,7 +5,6 @@ import { useIsMobile } from '../../hooks/useMediaQuery';
 import { 
   HomeIcon, 
   ShoppingBagIcon, 
-  CameraIcon, 
   GiftIcon, 
   MagnifyingGlassIcon
 } from '@heroicons/react/24/outline';
@@ -13,7 +12,6 @@ import {
 import { 
   HomeIcon as HomeIconSolid, 
   ShoppingBagIcon as ShoppingBagIconSolid, 
-  CameraIcon as CameraIconSolid, 
   GiftIcon as GiftIconSolid, 
   MagnifyingGlassIcon as MagnifyingGlassIconSolid
 } from '@heroicons/react/24/solid';
@@ -29,7 +27,6 @@ const MobileBottomNav = () => {
   const navItems = [
     { name: 'Home', path: '/', icon: HomeIcon, activeIcon: HomeIconSolid },
     { name: 'Shop', path: '/category/makeup', icon: ShoppingBagIcon, activeIcon: ShoppingBagIconSolid },
-    { name: 'Try On', path: '/try-on', icon: CameraIcon, activeIcon: CameraIconSolid },
     { name: 'Gift', path: '/category/gift', icon: GiftIcon, activeIcon: GiftIconSolid },
     { name: 'Explore', path: '/search', icon: MagnifyingGlassIcon, activeIcon: MagnifyingGlassIconSolid },
   ];

@@ -47,8 +47,7 @@ const ProductCard = ({ product, onClick }) => {
   };
 
   // Update the logic to prioritize the 'image' field from the product data
-  const serverBaseUrl = 'http://localhost:5000'; // Update this to your server's base URL
-  const productImage = `${serverBaseUrl}${product.image || product.primary_image || '/images/product-placeholder.jpg'}`;
+  const productImage = `${import.meta.env.VITE_SERVER_BASE_URL}${product.image || product.primary_image || '/images/product-placeholder.jpg'}`;
 
   return (
     <div className="group relative" onClick={onClick}>

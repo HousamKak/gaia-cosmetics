@@ -11,6 +11,8 @@ import productService from '../services/product.service';
 import categoryService from '../services/category.service';
 import { formatPrice } from '../utils/formatter';
 
+import.meta.env.VITE_SERVER_BASE_URL;
+
 const Home = () => {
   const { showError } = useNotification();
   const [heroContent, setHeroContent] = useState({
@@ -162,7 +164,7 @@ const Home = () => {
       <section className="relative">
         <div className="relative h-96 overflow-hidden">
           <img 
-            src={heroContent.image} 
+            src={`${import.meta.env.VITE_SERVER_BASE_URL}${heroContent.image || '/images/product-placeholder.jpg'}`} 
             alt="GAIA Cosmetics" 
             className="w-full h-full object-cover"
           />
@@ -198,7 +200,7 @@ const Home = () => {
               >
                 <div className="aspect-w-3 aspect-h-4">
                   <img 
-                    src={category.image} 
+                    src={`${import.meta.env.VITE_SERVER_BASE_URL}${category.image}`} 
                     alt={category.name} 
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
@@ -234,7 +236,7 @@ const Home = () => {
               >
                 <div className="aspect-w-16 aspect-h-9">
                   <img 
-                    src={edition.image} 
+                    src={`${import.meta.env.VITE_SERVER_BASE_URL}${edition.image}`} 
                     alt={edition.name} 
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />

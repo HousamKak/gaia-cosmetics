@@ -8,7 +8,6 @@ import ProductDetail from './pages/ProductDetail';
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 import Wishlist from './pages/Wishlist';
-import TryOn from './pages/TryOn';
 import Account from './pages/Account';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -48,7 +47,6 @@ function App() {
                   <Route path="cart" element={<Cart />} />
                   <Route path="checkout" element={<Checkout />} />
                   <Route path="wishlist" element={<Wishlist />} />
-                  <Route path="try-on" element={<TryOn />} />
                   <Route path="search" element={<SearchResults />} />
                   <Route path="account" element={<Account />} />
                   <Route path="login" element={<Login />} />

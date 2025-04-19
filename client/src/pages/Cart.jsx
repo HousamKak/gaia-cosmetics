@@ -11,6 +11,8 @@ import {
   ArrowLeftIcon
 } from '@heroicons/react/24/outline';
 
+import.meta.env.VITE_SERVER_BASE_URL;
+
 const Cart = () => {
   const { cartItems, updateQuantity, removeFromCart, subtotal, discount, shippingCost, total, applyPromoCode } = useCart();
   const { showSuccess, showError } = useNotification();
@@ -98,6 +100,7 @@ const Cart = () => {
                   {cartItems.map((item) => {
                     const colorObj = item.colors?.find(color => color.value === item.selectedColor);
                     const colorName = colorObj?.name || '';
+                    const productImage = `${import.meta.env.VITE_SERVER_BASE_URL}${item.image || '/images/product-placeholder.jpg'}`;
                     
                     return (
                       <li key={`${item.id}-${item.selectedColor}`} className="px-6 py-4">
@@ -105,7 +108,7 @@ const Cart = () => {
                           {/* Product Image */}
                           <div className="flex-shrink-0 w-20 h-20 bg-neutral-100 rounded overflow-hidden">
                             <img
-                              src={item.image}
+                              src={productImage}
                               alt={item.name}
                               className="w-full h-full object-cover"
                             />

@@ -14,6 +14,8 @@ import { useCart } from '../contexts/CartContext';
 import { useWishlist } from '../contexts/WishlistContext';
 import productService from '../services/product.service';
 
+import.meta.env.VITE_SERVER_BASE_URL;
+
 function classNames(...classes) {
   return classes.filter(Boolean).join(' ');
 }
@@ -104,6 +106,7 @@ const ProductDetail = () => {
 
   // Find primary image or use first image
   const primaryImage = product.images?.find(img => img.isPrimary) || product.images?.[0];
+  const productImage = `${import.meta.env.VITE_SERVER_BASE_URL}${primaryImage?.imagePath || '/images/product-placeholder.jpg'}`;
   
   return (
     <div className="container mx-auto px-4 py-8">
@@ -113,7 +116,7 @@ const ProductDetail = () => {
           {/* Main Image */}
           <div className="aspect-w-1 aspect-h-1 md:aspect-h-1.3 bg-neutral-100 rounded-lg overflow-hidden">
             <img
-              src={primaryImage?.imagePath || '/images/product-placeholder.jpg'}
+              src={productImage}
               alt={product.name}
               className="w-full h-full object-cover object-center"
             />
@@ -137,7 +140,7 @@ const ProductDetail = () => {
                   }`}
                 >
                   <img
-                    src={image.imagePath}
+                    src={`${import.meta.env.VITE_SERVER_BASE_URL}${image.imagePath}`}
                     alt={`${product.name} - View ${index + 1}`}
                     className="w-full h-full object-cover object-center"
                   />
@@ -145,14 +148,6 @@ const ProductDetail = () => {
               ))}
             </div>
           )}
-
-          {/* Try On Button - Only visible on desktop */}
-          <div className="hidden md:block mt-6">
-            <Link to="/try-on" className="flex items-center space-x-2 border border-neutral-300 rounded px-4 py-2 hover:bg-neutral-50">
-              <CameraIcon className="h-5 w-5" />
-              <span>Virtual Try On</span>
-            </Link>
-          </div>
         </div>
 
         {/* Product Details - Right Side */}

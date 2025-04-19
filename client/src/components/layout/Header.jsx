@@ -252,13 +252,6 @@ const Header = () => {
               ))}
               
               <Link 
-                to="/try-on" 
-                className="block py-2 text-neutral-700 hover:text-neutral-900 font-medium"
-              >
-                Virtual Try On
-              </Link>
-              
-              <Link 
                 to="/wishlist" 
                 className="block py-2 text-neutral-700 hover:text-neutral-900 font-medium"
               >

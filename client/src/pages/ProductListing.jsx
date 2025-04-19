@@ -306,7 +306,7 @@ const ProductListing = () => {
         <div className="relative">
           <div className="h-64 w-full overflow-hidden">
             <img
-              src={categoryInfo.image}
+              src={`${import.meta.env.VITE_SERVER_BASE_URL}${categoryInfo.image || '/images/category-placeholder.jpg'}`}
               alt={categoryInfo.name}
               className="w-full h-full object-cover"
             />
