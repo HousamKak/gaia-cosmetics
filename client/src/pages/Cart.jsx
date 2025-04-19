@@ -2,6 +2,9 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../contexts/CartContext';
+import { useNotification } from '../contexts/NotificationContext';
+import { formatPrice, formatDiscount } from '../utils/formatter';
+import { debounce } from '../utils/helpers';
 import { 
   TrashIcon, 
   ShoppingBagIcon,
@@ -10,18 +13,25 @@ import {
 
 const Cart = () => {
   const { cartItems, updateQuantity, removeFromCart, subtotal, discount, shippingCost, total, applyPromoCode } = useCart();
+  const { showSuccess, showError } = useNotification();
   const [promoCode, setPromoCode] = useState('');
   const [promoError, setPromoError] = useState('');
   const [promoSuccess, setPromoSuccess] = useState('');
   const navigate = useNavigate();
 
+  // Debounced quantity update to avoid too many state updates
+  const debouncedUpdateQuantity = debounce((id, color, newQuantity) => {
+    updateQuantity(id, color, newQuantity);
+  }, 300);
+
   const handleQuantityChange = (id, color, newQuantity) => {
     if (newQuantity < 1) return;
-    updateQuantity(id, color, newQuantity);
+    debouncedUpdateQuantity(id, color, newQuantity);
   };
 
   const handleRemoveItem = (id, color) => {
     removeFromCart(id, color);
+    showSuccess('Item removed from cart');
   };
 
   const handleApplyPromoCode = () => {
@@ -36,9 +46,11 @@ const Cart = () => {
       setPromoSuccess(result.message);
       setPromoError('');
       setPromoCode('');
+      showSuccess(result.message);
     } else {
       setPromoError(result.message);
       setPromoSuccess('');
+      showError(result.message);
     }
   };
 
@@ -117,9 +129,12 @@ const Cart = () => {
                                 </p>
                               </div>
                               <div className="text-right">
-                                <p className="text-base font-medium text-neutral-900">₹{item.price}</p>
+                                <p className="text-base font-medium text-neutral-900">{formatPrice(item.price)}</p>
                                 {item.originalPrice > item.price && (
-                                  <p className="text-sm text-neutral-500 line-through">₹{item.originalPrice}</p>
+                                  <p className="text-sm text-neutral-500 line-through">{formatPrice(item.originalPrice)}</p>
+                                )}
+                                {item.originalPrice > item.price && (
+                                  <p className="text-sm text-accent">{formatDiscount(item.originalPrice, item.price)}</p>
                                 )}
                               </div>
                             </div>
@@ -176,13 +191,13 @@ const Cart = () => {
                   <div className="space-y-3">
                     <div className="flex justify-between text-base text-neutral-700">
                       <span>Subtotal</span>
-                      <span>₹{subtotal}</span>
+                      <span>{formatPrice(subtotal)}</span>
                     </div>
                     
                     {discount > 0 && (
                       <div className="flex justify-between text-base text-green-600">
                         <span>Discount</span>
-                        <span>-₹{discount}</span>
+                        <span>-{formatPrice(discount)}</span>
                       </div>
                     )}
                     
@@ -192,7 +207,7 @@ const Cart = () => {
                         {shippingCost === 0 ? (
                           <span className="text-green-600">Free</span>
                         ) : (
-                          `₹${shippingCost}`
+                          formatPrice(shippingCost)
                         )}
                       </span>
                     </div>
@@ -200,7 +215,7 @@ const Cart = () => {
                     <div className="border-t border-neutral-200 pt-3 mt-3">
                       <div className="flex justify-between text-lg font-bold text-neutral-900">
                         <span>Total</span>
-                        <span>₹{total}</span>
+                        <span>{formatPrice(total)}</span>
                       </div>
                       <p className="text-xs text-neutral-500 mt-1">
                         Inclusive of all taxes
@@ -275,7 +290,7 @@ const Cart = () => {
                   <ul className="text-sm text-neutral-600 space-y-2">
                     <li className="flex items-start">
                       <span className="text-primary mr-2">•</span>
-                      Free shipping on orders above ₹999
+                      Free shipping on orders above {formatPrice(999)}
                     </li>
                     <li className="flex items-start">
                       <span className="text-primary mr-2">•</span>

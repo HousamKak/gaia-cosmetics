@@ -2,50 +2,89 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useNotification } from '../contexts/NotificationContext';
 import authService from '../services/auth.service';
+import useForm from '../hooks/useForm';
+import { isValidEmail } from '../utils/validation';
 
 const Register = () => {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+  const { showSuccess, showError } = useNotification();
   const navigate = useNavigate();
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    // Password validation
-    if (password !== confirmPassword) {
-      return setError('Passwords do not match');
+  
+  // Define validation rules for the form
+  const validationRules = {
+    name: {
+      required: true,
+      requiredMessage: 'Full name is required'
+    },
+    email: {
+      required: true,
+      email: true,
+      requiredMessage: 'Email is required',
+      validate: (value) => {
+        return isValidEmail(value) ? null : 'Please enter a valid email address';
+      }
+    },
+    password: {
+      required: true,
+      requiredMessage: 'Password is required',
+      minLength: 6,
+      minLengthMessage: 'Password must be at least 6 characters'
+    },
+    confirmPassword: {
+      required: true,
+      requiredMessage: 'Please confirm your password',
+      validate: (value, formValues) => {
+        return value === formValues.password ? null : 'Passwords do not match';
+      }
+    },
+    terms: {
+      required: true,
+      requiredMessage: 'You must agree to the terms and conditions'
     }
-
-    if (password.length < 6) {
-      return setError('Password must be at least 6 characters');
-    }
-
+  };
+  
+  // Define onSubmit callback for useForm
+  const onSubmit = async (values) => {
     try {
-      setError('');
       setLoading(true);
-
-      // Call the register API
-      const userData = { name, email, password };
+      
+      // Call the register function from authService
+      const userData = { 
+        name: values.name, 
+        email: values.email, 
+        password: values.password 
+      };
+      
       const response = await authService.register(userData);
-
+      
       // Update auth context with the user data
       login(response);
-
-      // Navigate to home page
+      
+      // Show success message and navigate
+      showSuccess('Account created successfully! Welcome to GAIA Cosmetics.');
       navigate('/');
     } catch (err) {
       console.error('Registration error:', err);
-      setError(err.response?.data?.message || 'Failed to create an account. Please try again.');
-    } finally {
+      showError(err.response?.data?.message || 'Failed to create account. Please try again.');
       setLoading(false);
     }
   };
+  
+  // Use custom form hook
+  const { 
+    values, 
+    errors, 
+    handleChange, 
+    handleBlur, 
+    handleSubmit 
+  } = useForm(
+    { name: '', email: '', password: '', confirmPassword: '', terms: false },
+    validationRules,
+    onSubmit
+  );
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-neutral-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -62,12 +101,6 @@ const Register = () => {
           </p>
         </div>
         
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
-            {error}
-          </div>
-        )}
-        
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
@@ -79,12 +112,17 @@ const Register = () => {
                 name="name"
                 type="text"
                 autoComplete="name"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-neutral-300 placeholder-neutral-500 text-neutral-900 rounded-t-md focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm"
+                value={values.name}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                className={`appearance-none rounded-none relative block w-full px-3 py-2 border ${
+                  errors.name ? 'border-red-300' : 'border-neutral-300'
+                } placeholder-neutral-500 text-neutral-900 rounded-t-md focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm`}
                 placeholder="Full Name"
               />
+              {errors.name && (
+                <p className="mt-1 text-xs text-red-600">{errors.name}</p>
+              )}
             </div>
             <div>
               <label htmlFor="email-address" className="sr-only">
@@ -95,12 +133,17 @@ const Register = () => {
                 name="email"
                 type="email"
                 autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-neutral-300 placeholder-neutral-500 text-neutral-900 focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm"
+                value={values.email}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                className={`appearance-none rounded-none relative block w-full px-3 py-2 border ${
+                  errors.email ? 'border-red-300' : 'border-neutral-300'
+                } placeholder-neutral-500 text-neutral-900 focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm`}
                 placeholder="Email address"
               />
+              {errors.email && (
+                <p className="mt-1 text-xs text-red-600">{errors.email}</p>
+              )}
             </div>
             <div>
               <label htmlFor="password" className="sr-only">
@@ -111,12 +154,17 @@ const Register = () => {
                 name="password"
                 type="password"
                 autoComplete="new-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-neutral-300 placeholder-neutral-500 text-neutral-900 focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm"
+                value={values.password}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                className={`appearance-none rounded-none relative block w-full px-3 py-2 border ${
+                  errors.password ? 'border-red-300' : 'border-neutral-300'
+                } placeholder-neutral-500 text-neutral-900 focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm`}
                 placeholder="Password"
               />
+              {errors.password && (
+                <p className="mt-1 text-xs text-red-600">{errors.password}</p>
+              )}
             </div>
             <div>
               <label htmlFor="confirm-password" className="sr-only">
@@ -124,15 +172,20 @@ const Register = () => {
               </label>
               <input
                 id="confirm-password"
-                name="confirm-password"
+                name="confirmPassword"
                 type="password"
                 autoComplete="new-password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-neutral-300 placeholder-neutral-500 text-neutral-900 rounded-b-md focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm"
+                value={values.confirmPassword}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                className={`appearance-none rounded-none relative block w-full px-3 py-2 border ${
+                  errors.confirmPassword ? 'border-red-300' : 'border-neutral-300'
+                } placeholder-neutral-500 text-neutral-900 rounded-b-md focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm`}
                 placeholder="Confirm Password"
               />
+              {errors.confirmPassword && (
+                <p className="mt-1 text-xs text-red-600">{errors.confirmPassword}</p>
+              )}
             </div>
           </div>
 
@@ -141,8 +194,11 @@ const Register = () => {
               id="terms"
               name="terms"
               type="checkbox"
-              required
-              className="h-4 w-4 text-primary focus:ring-primary border-neutral-300 rounded"
+              checked={values.terms}
+              onChange={handleChange}
+              className={`h-4 w-4 text-primary focus:ring-primary ${
+                errors.terms ? 'border-red-300' : 'border-neutral-300'
+              } rounded`}
             />
             <label htmlFor="terms" className="ml-2 block text-sm text-neutral-900">
               I agree to the{' '}
@@ -155,12 +211,15 @@ const Register = () => {
               </Link>
             </label>
           </div>
+          {errors.terms && (
+            <p className="mt-1 text-xs text-red-600">{errors.terms}</p>
+          )}
 
           <div>
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:bg-primary-light disabled:cursor-not-allowed"
             >
               {loading ? 'Creating account...' : 'Create account'}
             </button>
