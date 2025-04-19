@@ -1,4 +1,3 @@
-// frontend/src/pages/ProductListing.jsx
 import { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { 
@@ -7,6 +6,10 @@ import {
   ChevronDownIcon
 } from '@heroicons/react/24/outline';
 import ProductCard from '../components/product/ProductCard';
+import FilterSidebar from '../components/product/FilterSidebar';
+import { ProductSkeleton, SkeletonLoader } from '../components/product/ProductSkeleton';
+import { useNotification } from '../contexts/NotificationContext';
+import { debounce } from '../utils/helpers';
 import categoryService from '../services/category.service';
 import contentService from '../services/content.service';
 import productService from '../services/product.service';
@@ -15,33 +18,30 @@ const ProductListing = () => {
   const { category } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const { showError } = useNotification();
   const queryParams = new URLSearchParams(location.search);
   
-  // State for products and filters
+  // State for products and loading
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState(null);
   const [filterOpen, setFilterOpen] = useState(false);
   
-  // Filter states
-  const [priceRange, setPriceRange] = useState([0, 2000]);
-  const [selectedColors, setSelectedColors] = useState([]);
-  const [sortBy, setSortBy] = useState(queryParams.get('sort') || 'newest');
+  // State for category information
   const [categoryInfo, setCategoryInfo] = useState(null);
+  
+  // State for available filters
+  const [availableFilters, setAvailableFilters] = useState([]);
+  const [availableColors, setAvailableColors] = useState([]);
+  
+  // Filter states
+  const [activeFilters, setActiveFilters] = useState({});
+  const [priceRange, setPriceRange] = useState([0, 2000]);
+  const [sortBy, setSortBy] = useState(queryParams.get('sort') || 'newest');
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   
-  // Available filter options
-  const colorOptions = [
-    { name: 'Pink', value: '#FFB6C1' },
-    { name: 'Silver', value: '#D3D3D3' },
-    { name: 'Beige', value: '#DEB887' },
-    { name: 'Coral', value: '#FF7F7F' },
-    { name: 'Gold', value: '#FFD700' },
-    { name: 'Brown', value: '#8B4513' },
-    { name: 'Red', value: '#FF0000' },
-    { name: 'Nude', value: '#E3BC9A' }
-  ];
-  
+  // Sort options
   const sortOptions = [
     { name: 'Newest', value: 'newest' },
     { name: 'Price: Low to High', value: 'price-asc' },
@@ -49,11 +49,76 @@ const ProductListing = () => {
     { name: 'Popularity', value: 'popularity' },
     { name: 'Discount', value: 'discount' }
   ];
-
+  
+  // Initialize filters from URL parameters
+  useEffect(() => {
+    const initialFilters = {};
+    
+    // Extract filters from URL query parameters
+    for (const [key, value] of queryParams.entries()) {
+      if (key === 'sort') {
+        setSortBy(value);
+      } else if (key === 'minPrice') {
+        setPriceRange(prev => [parseInt(value), prev[1]]);
+      } else if (key === 'maxPrice') {
+        setPriceRange(prev => [prev[0], parseInt(value)]);
+      } else if (key === 'colors') {
+        initialFilters.colors = value.split(',');
+      } else if (key !== 'page') {
+        // Other filter types
+        initialFilters[key] = value.split(',');
+      }
+    }
+    
+    setActiveFilters(initialFilters);
+  }, [location.search]);
+  
   // Fetch products on component mount and when filters change
   useEffect(() => {
+    // Skip initial render to avoid double fetching
+    if (initialLoad) {
+      setInitialLoad(false);
+      return;
+    }
+    
     fetchProducts();
-  }, [category, sortBy, selectedColors, priceRange]);
+  }, [category, activeFilters, priceRange, sortBy]);
+  
+  // Debounced URL update when filters change
+  const updateUrl = debounce(() => {
+    const newParams = new URLSearchParams();
+    
+    // Add sort parameter
+    if (sortBy) {
+      newParams.set('sort', sortBy);
+    }
+    
+    // Add price range
+    if (priceRange[0] > 0) {
+      newParams.set('minPrice', priceRange[0].toString());
+    }
+    
+    if (priceRange[1] < 5000) {
+      newParams.set('maxPrice', priceRange[1].toString());
+    }
+    
+    // Add other active filters
+    Object.entries(activeFilters).forEach(([key, values]) => {
+      if (values && values.length > 0) {
+        newParams.set(key, values.join(','));
+      }
+    });
+    
+    // Update URL without triggering a page reload
+    navigate(`${location.pathname}?${newParams.toString()}`, { replace: true });
+  }, 500);
+  
+  // Update URL when filters change
+  useEffect(() => {
+    if (!initialLoad) {
+      updateUrl();
+    }
+  }, [activeFilters, priceRange, sortBy]);
 
   const fetchProducts = async () => {
     try {
@@ -102,88 +167,131 @@ const ProductListing = () => {
       
       setCategoryInfo(categoryData);
       
-      // Fetch products based on category and filters
-      let productsData = [];
+      // Fetch available filters for the category
+      try {
+        const filtersResponse = await categoryService.getCategoryFilters(categoryId || category);
+        
+        if (filtersResponse.data) {
+          setAvailableFilters(filtersResponse.data.filters || []);
+          setAvailableColors(filtersResponse.data.colors || [
+            { name: 'Pink', value: '#FFB6C1' },
+            { name: 'Silver', value: '#D3D3D3' },
+            { name: 'Beige', value: '#DEB887' },
+            { name: 'Coral', value: '#FF7F7F' },
+            { name: 'Gold', value: '#FFD700' },
+            { name: 'Brown', value: '#8B4513' },
+            { name: 'Red', value: '#FF0000' },
+            { name: 'Nude', value: '#E3BC9A' }
+          ]);
+        }
+      } catch (err) {
+        console.error('Error fetching filters:', err);
+        // Fallback defaults
+        setAvailableFilters([
+          {
+            id: 'finish',
+            name: 'Finish',
+            type: 'checkbox',
+            options: [
+              { value: 'matte', label: 'Matte' },
+              { value: 'glossy', label: 'Glossy' },
+              { value: 'satin', label: 'Satin' },
+              { value: 'metallic', label: 'Metallic' }
+            ]
+          },
+          {
+            id: 'brand',
+            name: 'Brand',
+            type: 'checkbox',
+            options: [
+              { value: 'gaia', label: 'GAIA' },
+              { value: 'natura', label: 'Natura' },
+              { value: 'bloom', label: 'Bloom' }
+            ]
+          },
+          {
+            id: 'rating',
+            name: 'Rating',
+            type: 'radio',
+            options: [
+              { value: '4+', label: '4★ & above' },
+              { value: '3+', label: '3★ & above' },
+              { value: '2+', label: '2★ & above' }
+            ]
+          }
+        ]);
+        setAvailableColors([
+          { name: 'Pink', value: '#FFB6C1' },
+          { name: 'Silver', value: '#D3D3D3' },
+          { name: 'Beige', value: '#DEB887' },
+          { name: 'Coral', value: '#FF7F7F' },
+          { name: 'Gold', value: '#FFD700' },
+          { name: 'Brown', value: '#8B4513' },
+          { name: 'Red', value: '#FF0000' },
+          { name: 'Nude', value: '#E3BC9A' }
+        ]);
+      }
       
-      // Construct query parameters
+      // Fetch products based on category and filters
       const params = {
         sort: sortBy,
         minPrice: priceRange[0],
         maxPrice: priceRange[1],
       };
       
-      if (selectedColors.length > 0) {
-        params.colors = selectedColors.join(',');
+      if (activeFilters.colors?.length) {
+        params.colors = activeFilters.colors.join(',');
       }
+      Object.entries(activeFilters).forEach(([key, values]) => {
+        if (key !== 'colors' && values?.length) {
+          params[key] = values.join(',');
+        }
+      });
       
+      let response;
       try {
-        let response;
-
         if (categoryId) {
-          // If we have a valid category ID, use the category products endpoint
           response = await categoryService.getCategoryProducts(categoryId, params);
         } else {
-          // Otherwise, use the general products endpoint with category filter
           params.category = category;
           response = await productService.getProducts(params);
-        }
-
-        if (response.data && response.data.products) {
-          productsData = response.data.products;
-        } else {
-          productsData = [];
         }
       } catch (err) {
         console.error('Error fetching products:', err);
         setError('Failed to load products. Please try again.');
-        productsData = [];
+        showError('Failed to load products. Please try again.');
+        setProducts([]);
+        setLoading(false);
+        return;
       }
       
-      setProducts(productsData);
+      setProducts(response.data?.products || []);
       setLoading(false);
     } catch (err) {
       console.error('Error fetching products:', err);
       setError('Failed to load products. Please try again.');
+      showError('Failed to load products. Please try again.');
       setLoading(false);
     }
   };
 
   const handleSortChange = (e) => {
-    const newSortBy = e.target.value;
-    setSortBy(newSortBy);
-    
-    // Update URL with new sort parameter
-    queryParams.set('sort', newSortBy);
-    navigate(`${location.pathname}?${queryParams.toString()}`);
+    setSortBy(e.target.value);
   };
 
-  const handleColorFilter = (color) => {
-    setSelectedColors(prevColors => {
-      if (prevColors.includes(color)) {
-        return prevColors.filter(c => c !== color);
-      } else {
-        return [...prevColors, color];
-      }
-    });
+  const handleFilterChange = (filterName, values) => {
+    setActiveFilters(prev => ({ ...prev, [filterName]: values }));
   };
 
-  const handlePriceRangeChange = (e, index) => {
-    const value = parseInt(e.target.value);
-    setPriceRange(prev => {
-      const newRange = [...prev];
-      newRange[index] = value;
-      return newRange;
-    });
+  const handlePriceRangeChange = (newRange) => {
+    setPriceRange(newRange);
   };
 
   const clearFilters = () => {
+    setActiveFilters({});
     setPriceRange([0, 2000]);
-    setSelectedColors([]);
     setSortBy('newest');
-    
-    // Update URL to remove sort parameter
-    queryParams.delete('sort');
-    navigate(`${location.pathname}?${queryParams.toString()}`);
+    setShowMobileFilters(false);
   };
 
   const toggleMobileFilters = () => {
@@ -241,177 +349,25 @@ const ProductListing = () => {
         )}
 
         <div className="flex flex-col md:flex-row">
-          {/* Desktop Sidebar Filters */}
-          <div className="hidden md:block w-64 mr-8">
-            <div className="bg-white rounded-lg shadow p-4 sticky top-24">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-medium text-neutral-900">Filters</h2>
-                <button
-                  onClick={clearFilters}
-                  className="text-sm text-primary hover:text-primary-dark"
-                >
-                  Clear all
-                </button>
-              </div>
-              
-              {/* Price Range Filter */}
-              <div className="mb-6">
-                <h3 className="text-sm font-medium text-neutral-900 mb-2">Price Range</h3>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-neutral-500">₹{priceRange[0]}</span>
-                  <span className="text-sm text-neutral-500">₹{priceRange[1]}</span>
-                </div>
-                <div className="relative">
-                  <input
-                    type="range"
-                    min="0"
-                    max="2000"
-                    step="100"
-                    value={priceRange[0]}
-                    onChange={(e) => handlePriceRangeChange(e, 0)}
-                    className="w-full h-2 bg-neutral-200 rounded-lg appearance-none cursor-pointer"
-                  />
-                  <input
-                    type="range"
-                    min="0"
-                    max="2000"
-                    step="100"
-                    value={priceRange[1]}
-                    onChange={(e) => handlePriceRangeChange(e, 1)}
-                    className="absolute top-0 w-full h-2 bg-transparent appearance-none pointer-events-none"
-                  />
-                </div>
-              </div>
-              
-              {/* Color Filter */}
-              <div className="mb-6">
-                <h3 className="text-sm font-medium text-neutral-900 mb-2">Colors</h3>
-                <div className="flex flex-wrap gap-2">
-                  {colorOptions.map((color) => (
-                    <button
-                      key={color.value}
-                      className={`w-8 h-8 rounded-full border ${
-                        selectedColors.includes(color.value) ? 'ring-2 ring-primary ring-offset-1' : 'border-neutral-300'
-                      }`}
-                      style={{ backgroundColor: color.value }}
-                      onClick={() => handleColorFilter(color.value)}
-                      title={color.name}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Mobile Filters (Slide-out) */}
-          {showMobileFilters && (
-            <div className="fixed inset-0 z-40 flex md:hidden">
-              {/* Overlay */}
-              <div 
-                className="fixed inset-0 bg-black bg-opacity-25" 
-                onClick={toggleMobileFilters}
-              ></div>
-              
-              {/* Slide-out panel */}
-              <div className="relative w-4/5 max-w-xs bg-white h-full shadow-xl flex flex-col">
-                <div className="flex items-center justify-between p-4 border-b">
-                  <h2 className="text-lg font-medium text-neutral-900">Filters</h2>
-                  <button onClick={toggleMobileFilters}>
-                    <XMarkIcon className="h-6 w-6 text-neutral-500" />
-                  </button>
-                </div>
-                
-                <div className="overflow-y-auto flex-1 p-4">
-                  {/* Sort Options */}
-                  <div className="mb-6">
-                    <h3 className="text-sm font-medium text-neutral-900 mb-2">Sort By</h3>
-                    <select
-                      value={sortBy}
-                      onChange={handleSortChange}
-                      className="w-full p-2 border border-neutral-300 rounded shadow-sm focus:ring-primary focus:border-primary"
-                    >
-                      {sortOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  {/* Price Range Filter */}
-                  <div className="mb-6">
-                    <h3 className="text-sm font-medium text-neutral-900 mb-2">Price Range</h3>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-neutral-500">₹{priceRange[0]}</span>
-                      <span className="text-sm text-neutral-500">₹{priceRange[1]}</span>
-                    </div>
-                    <div className="relative">
-                      <input
-                        type="range"
-                        min="0"
-                        max="2000"
-                        step="100"
-                        value={priceRange[0]}
-                        onChange={(e) => handlePriceRangeChange(e, 0)}
-                        className="w-full h-2 bg-neutral-200 rounded-lg appearance-none cursor-pointer"
-                      />
-                      <input
-                        type="range"
-                        min="0"
-                        max="2000"
-                        step="100"
-                        value={priceRange[1]}
-                        onChange={(e) => handlePriceRangeChange(e, 1)}
-                        className="absolute top-0 w-full h-2 bg-transparent appearance-none pointer-events-none"
-                      />
-                    </div>
-                  </div>
-                  
-                  {/* Color Filter */}
-                  <div className="mb-6">
-                    <h3 className="text-sm font-medium text-neutral-900 mb-2">Colors</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {colorOptions.map((color) => (
-                        <button
-                          key={color.value}
-                          className={`w-8 h-8 rounded-full border ${
-                            selectedColors.includes(color.value) ? 'ring-2 ring-primary ring-offset-1' : 'border-neutral-300'
-                          }`}
-                          style={{ backgroundColor: color.value }}
-                          onClick={() => handleColorFilter(color.value)}
-                          title={color.name}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="border-t p-4">
-                  <div className="flex space-x-3">
-                    <button
-                      onClick={clearFilters}
-                      className="flex-1 py-2 px-4 border border-neutral-300 rounded text-neutral-700 bg-white hover:bg-neutral-50"
-                    >
-                      Clear all
-                    </button>
-                    <button
-                      onClick={toggleMobileFilters}
-                      className="flex-1 py-2 px-4 border border-transparent rounded text-white bg-primary hover:bg-primary-dark"
-                    >
-                      Apply
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
+          {/* Sidebar Filters */}
+          <FilterSidebar 
+            filters={availableFilters}
+            activeFilters={activeFilters}
+            onFilterChange={handleFilterChange}
+            onClearFilters={clearFilters}
+            isOpen={showMobileFilters}
+            onClose={() => setShowMobileFilters(false)}
+            availableColors={availableColors}
+            priceRange={priceRange}
+            onPriceRangeChange={handlePriceRangeChange}
+          />
+          
           {/* Products Grid */}
           <div className="flex-1">
             {/* Sort and Results Count */}
             <div className="flex justify-between items-center mb-6">
               <p className="text-sm text-neutral-500">
-                {products.length} products
+                {loading ? 'Loading products...' : `${products.length} products`}
               </p>
               <div className="hidden md:block">
                 <div className="flex items-center">
@@ -438,8 +394,8 @@ const ProductListing = () => {
 
             {/* Products */}
             {loading ? (
-              <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <SkeletonLoader count={8} Component={ProductSkeleton} />
               </div>
             ) : products.length === 0 ? (
               <div className="bg-white rounded-lg shadow py-8 px-4 text-center">
@@ -459,6 +415,8 @@ const ProductListing = () => {
                 ))}
               </div>
             )}
+            
+            {/* Add pagination here if needed */}
           </div>
         </div>
       </div>
