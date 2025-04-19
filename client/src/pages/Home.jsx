@@ -1,19 +1,21 @@
 // frontend/src/pages/Home.jsx
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Pagination, Autoplay } from 'swiper';
 import 'swiper/css';
 import 'swiper/css/pagination';
 
 import ProductCard from '../components/product/ProductCard';
+import contentService from '../services/content.service';
+import productService from '../services/product.service';
+import categoryService from '../services/category.service';
 
 const Home = () => {
   const [heroContent, setHeroContent] = useState({
-    title: 'Ready again look flawless all day',
-    discount: '25-50% OFF',
-    image: '/images/hero-banner.jpg'
+    title: '',
+    discount: '',
+    image: ''
   });
   const [categories, setCategories] = useState([]);
   const [limitedEditions, setLimitedEditions] = useState([]);
@@ -25,97 +27,69 @@ const Home = () => {
     const fetchHomeData = async () => {
       try {
         setLoading(true);
-        // In a real app, these would be separate API calls
-        // For now, we'll simulate with data
+        setError(null);
         
-        // Sample category data
-        setCategories([
-          {
-            id: 1,
-            name: 'Face',
-            image: '/images/category-face.jpg',
-            productCount: '50+ products'
-          },
-          {
-            id: 2,
-            name: 'Lip',
-            image: '/images/category-lip.jpg',
-            productCount: '25+ products'
-          },
-          {
-            id: 3,
-            name: 'Eyes',
-            image: '/images/category-eyes.jpg',
-            productCount: '45+ products'
-          }
-        ]);
+        // Fetch hero content
+        const heroResponse = await contentService.getContentBySection('hero');
+        if (heroResponse.data) {
+          setHeroContent({
+            title: heroResponse.data.title?.value || '',
+            discount: heroResponse.data.discount?.value || '',
+            image: heroResponse.data.image?.value || '/images/hero-banner.jpg'
+          });
+        }
         
-        // Sample limited editions data
-        setLimitedEditions([
-          {
-            id: 1,
-            name: 'Summer Collection',
-            image: '/images/limited-summer.jpg',
-            discount: '30% OFF'
-          },
-          {
-            id: 2,
-            name: 'Bridal Collection',
-            image: '/images/limited-bridal.jpg',
-            discount: '20% OFF'
-          }
-        ]);
+        // Fetch categories
+        const categoryResponse = await categoryService.getAllCategories();
+        if (categoryResponse.data) {
+          // Format categories for display
+          const formattedCategories = categoryResponse.data.map(category => ({
+            id: category.id,
+            name: category.name,
+            image: category.image_path || '/images/category-placeholder.jpg',
+            productCount: `${category.product_count || 0}+ products`
+          }));
+          
+          setCategories(formattedCategories.slice(0, 3)); // Limit to first 3 categories
+        }
         
-        // Sample featured products
-        setFeaturedProducts([
-          {
-            id: 1,
-            name: 'Plush Warm Beige',
-            category: 'Lipstick',
-            price: 499,
-            originalPrice: 999,
-            discountPercentage: 50,
-            image: '/images/product-lipstick-beige.jpg',
-            isNew: true,
-            colors: ['#FFB6C1', '#D3D3D3', '#DEB887', '#FF7F7F']
-          },
-          {
-            id: 2,
-            name: 'Kissable Rose Quartz',
-            category: 'Lip Gloss',
-            price: 499,
-            originalPrice: 999,
-            discountPercentage: 50,
-            image: '/images/product-lipgloss-rose.jpg',
-            colors: ['#FFB6C1', '#D3D3D3', '#DEB887']
-          },
-          {
-            id: 3,
-            name: 'Silk Foundation',
-            category: 'Face',
-            price: 799,
-            originalPrice: 1299,
-            discountPercentage: 40,
-            image: '/images/product-foundation.jpg',
-            colors: ['#F5DEB3', '#D2B48C', '#BC8F8F', '#F4A460']
-          },
-          {
-            id: 4,
-            name: 'Luminous Highlighter',
-            category: 'Face',
-            price: 599,
-            originalPrice: 899,
-            discountPercentage: 35,
-            image: '/images/product-highlighter.jpg',
-            colors: ['#FFD700', '#F0E68C', '#FFC0CB']
-          }
-        ]);
+        // Fetch limited editions content
+        const limitedEditionsResponse = await contentService.getContentBySection('limited_editions');
+        if (limitedEditionsResponse.data) {
+          // Format limited editions for display
+          const limitedEditionsData = [
+            {
+              id: 1,
+              name: limitedEditionsResponse.data.summer_title?.value || 'Summer Collection',
+              image: limitedEditionsResponse.data.summer_image?.value || '/images/limited-summer.jpg',
+              discount: limitedEditionsResponse.data.summer_discount?.value || '30% OFF'
+            },
+            {
+              id: 2,
+              name: limitedEditionsResponse.data.bridal_title?.value || 'Bridal Collection',
+              image: limitedEditionsResponse.data.bridal_image?.value || '/images/limited-bridal.jpg',
+              discount: limitedEditionsResponse.data.bridal_discount?.value || '20% OFF'
+            }
+          ];
+          
+          setLimitedEditions(limitedEditionsData);
+        }
+        
+        // Fetch featured products
+        const productsResponse = await productService.getProducts({ 
+          limit: 4,
+          sort: 'popularity' 
+        });
+        
+        if (productsResponse.data && productsResponse.data.products) {
+          setFeaturedProducts(productsResponse.data.products);
+        }
         
         setLoading(false);
       } catch (err) {
+        console.error('Error fetching home data:', err);
         setError('Failed to load home content. Please refresh the page.');
         setLoading(false);
-        console.error('Error fetching home data:', err);
       }
     };
     

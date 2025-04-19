@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import authService from '../services/auth.service';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -22,17 +23,19 @@ const Login = () => {
       setError('');
       setLoading(true);
       
-      const result = await login(email, password);
+      // Call the login function from authService
+      const response = await authService.login({ email, password });
       
-      if (result.success) {
+      if (response) {
+        // Update auth context
+        login(response);
+        
+        // Redirect to the from path or home
         navigate(from, { replace: true });
-      } else {
-        setError(result.error || 'Failed to sign in');
-        setLoading(false);
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError('Failed to sign in. Please try again.');
+      setError(err.response?.data?.message || 'Failed to sign in. Please try again.');
       setLoading(false);
     }
   };

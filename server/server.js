@@ -7,6 +7,9 @@ const dotenv = require('dotenv');
 // Load environment variables
 dotenv.config();
 
+// Initialize database and seed data
+require('./src/db/seed');
+
 // Import routes
 const authRoutes = require('./src/routes/auth.routes');
 const productRoutes = require('./src/routes/product.routes');

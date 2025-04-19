@@ -1,13 +1,15 @@
 // frontend/src/pages/ProductListing.jsx
 import { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { 
   AdjustmentsHorizontalIcon, 
   XMarkIcon,
   ChevronDownIcon
 } from '@heroicons/react/24/outline';
 import ProductCard from '../components/product/ProductCard';
+import categoryService from '../services/category.service';
+import contentService from '../services/content.service';
+import productService from '../services/product.service';
 
 const ProductListing = () => {
   const { category } = useParams();
@@ -58,118 +60,95 @@ const ProductListing = () => {
       setLoading(true);
       setError(null);
       
-      // In a real app, this would be an API call with all filters
-      // For now, we'll simulate with sample data
-      
-      // Simulate a delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Construct a query string from filters
-      let queryStr = '';
-      if (sortBy) queryStr += `&sort=${sortBy}`;
-      if (selectedColors.length > 0) queryStr += `&colors=${selectedColors.join(',')}`;
-      if (priceRange[0] > 0 || priceRange[1] < 2000) {
-        queryStr += `&minPrice=${priceRange[0]}&maxPrice=${priceRange[1]}`;
-      }
-      
-      // This would be a fetch in a real app
-      // const response = await axios.get(`/api/products?category=${category}${queryStr}`);
-      
-      // Sample product data based on category
-      let productData = [];
+      // Get category info first
+      let categoryId = null;
       let categoryData = null;
       
-      // Different products based on category
-      if (category === 'makeup') {
+      try {
+        // Get all categories first to find the matching one
+        const categoriesResponse = await categoryService.getAllCategories();
+        if (categoriesResponse.data) {
+          const matchingCategory = categoriesResponse.data.find(
+            cat => cat.name.toLowerCase() === category.toLowerCase()
+          );
+          
+          if (matchingCategory) {
+            categoryId = matchingCategory.id;
+            
+            // Get the category banner
+            const categoryContent = await contentService.getContentBySection('category');
+            const bannerKey = `${category.toLowerCase()}_banner`;
+            
+            categoryData = {
+              name: matchingCategory.name,
+              description: `Explore our range of high-quality ${matchingCategory.name.toLowerCase()} products for every occasion.`,
+              image: categoryContent.data?.[bannerKey]?.value || '/images/category-placeholder.jpg'
+            };
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching category:', err);
+        // Continue with default category info
+      }
+      
+      // If no matching category found, use default
+      if (!categoryData) {
         categoryData = {
-          name: 'Makeup',
-          description: 'Explore our range of high-quality makeup products for every occasion.',
-          image: '/images/category-makeup-banner.jpg'
-        };
-        
-        productData = [
-          { id: 1, name: 'Plush Warm Beige Lipstick', price: 499, originalPrice: 999, category: 'Lips', colors: ['#FFB6C1', '#D3D3D3', '#DEB887', '#FF7F7F'], image: '/images/product-lipstick-beige.jpg' },
-          { id: 2, name: 'Silk Foundation Medium', price: 799, originalPrice: 1299, category: 'Face', colors: ['#E3BC9A', '#D2B48C', '#BC8F8F'], image: '/images/product-foundation.jpg' },
-          { id: 6, name: 'Glossy Lip Oil', price: 399, originalPrice: 599, category: 'Lips', colors: ['#FFB6C1', '#FF7F7F'], image: '/images/product-lip-oil.jpg' },
-          { id: 7, name: 'Creamy Concealer', price: 449, originalPrice: 699, category: 'Face', colors: ['#E3BC9A', '#D2B48C', '#BC8F8F'], image: '/images/product-concealer.jpg' },
-          { id: 8, name: 'Volume Mascara', price: 399, originalPrice: 599, category: 'Eyes', colors: ['#000000'], image: '/images/product-mascara.jpg' }
-        ];
-      } else if (category === 'skincare') {
-        categoryData = {
-          name: 'Skincare',
-          description: 'Pamper your skin with our natural and effective skincare products.',
-          image: '/images/category-skincare-banner.jpg'
-        };
-        
-        productData = [
-          { id: 9, name: 'Hydrating Face Mist', price: 349, originalPrice: 499, category: 'Skincare', colors: [], image: '/images/product-face-mist.jpg' },
-          { id: 10, name: 'Rose Quartz Face Roller', price: 799, originalPrice: 1299, category: 'Skincare', colors: [], image: '/images/product-face-roller.jpg' },
-          { id: 14, name: 'Vitamin C Serum', price: 699, originalPrice: 999, category: 'Skincare', colors: [], image: '/images/product-vitamin-c.jpg' },
-          { id: 15, name: 'Hydrating Night Cream', price: 599, originalPrice: 899, category: 'Skincare', colors: [], image: '/images/product-night-cream.jpg' },
-          { id: 16, name: 'Exfoliating Face Scrub', price: 449, originalPrice: 699, category: 'Skincare', colors: [], image: '/images/product-face-scrub.jpg' }
-        ];
-      } else if (category === 'fragrance') {
-        categoryData = {
-          name: 'Fragrance',
-          description: 'Discover our collection of enchanting and long-lasting fragrances.',
-          image: '/images/category-fragrance-banner.jpg'
-        };
-        
-        productData = [
-          { id: 11, name: 'Citrus Blossom Perfume', price: 1299, originalPrice: 1999, category: 'Fragrance', colors: [], image: '/images/product-citrus-perfume.jpg' },
-          { id: 17, name: 'Wild Rose Eau de Parfum', price: 1499, originalPrice: 1999, category: 'Fragrance', colors: [], image: '/images/product-rose-perfume.jpg' },
-          { id: 18, name: 'Ocean Breeze Body Mist', price: 599, originalPrice: 799, category: 'Fragrance', colors: [], image: '/images/product-body-mist.jpg' },
-          { id: 19, name: 'Vanilla Dream Perfume', price: 1199, originalPrice: 1699, category: 'Fragrance', colors: [], image: '/images/product-vanilla-perfume.jpg' },
-          { id: 20, name: 'Amber Nights Cologne', price: 1399, originalPrice: 1899, category: 'Fragrance', colors: [], image: '/images/product-cologne.jpg' }
-        ];
-      } else {
-        // Default category or "All Products"
-        categoryData = {
-          name: 'All Products',
-          description: 'Browse our complete collection of beauty products.',
+          name: category.charAt(0).toUpperCase() + category.slice(1),
+          description: `Explore our range of high-quality ${category.toLowerCase()} products for every occasion.`,
           image: '/images/category-all-banner.jpg'
         };
-        
-        productData = [
-          { id: 1, name: 'Plush Warm Beige Lipstick', price: 499, originalPrice: 999, category: 'Lips', colors: ['#FFB6C1', '#D3D3D3', '#DEB887', '#FF7F7F'], image: '/images/product-lipstick-beige.jpg' },
-          { id: 2, name: 'Silk Foundation Medium', price: 799, originalPrice: 1299, category: 'Face', colors: ['#E3BC9A', '#D2B48C', '#BC8F8F'], image: '/images/product-foundation.jpg' },
-          { id: 3, name: 'Rose Gold Highlighter', price: 599, originalPrice: 899, category: 'Face', colors: ['#FFD700', '#F0E68C', '#FFC0CB'], image: '/images/product-highlighter.jpg' },
-          { id: 4, name: 'Velvet Matte Eyeliner', price: 349, originalPrice: 499, category: 'Eyes', colors: ['#000000', '#8B4513'], image: '/images/product-eyeliner.jpg' },
-          { id: 9, name: 'Hydrating Face Mist', price: 349, originalPrice: 499, category: 'Skincare', colors: [], image: '/images/product-face-mist.jpg' },
-          { id: 11, name: 'Citrus Blossom Perfume', price: 1299, originalPrice: 1999, category: 'Fragrance', colors: [], image: '/images/product-citrus-perfume.jpg' }
-        ];
       }
       
-      // Apply filters (would be done by the server in a real app)
-      
-      // Filter by price range
-      let filteredProducts = productData.filter(product => 
-        product.price >= priceRange[0] && product.price <= priceRange[1]
-      );
-      
-      // Filter by selected colors
-      if (selectedColors.length > 0) {
-        filteredProducts = filteredProducts.filter(product => {
-          if (!product.colors || product.colors.length === 0) return false;
-          return selectedColors.some(color => product.colors.includes(color));
-        });
-      }
-      
-      // Apply sorting
-      if (sortBy === 'price-asc') {
-        filteredProducts.sort((a, b) => a.price - b.price);
-      } else if (sortBy === 'price-desc') {
-        filteredProducts.sort((a, b) => b.price - a.price);
-      } else if (sortBy === 'discount') {
-        filteredProducts.sort((a, b) => {
-          const discountA = a.originalPrice - a.price;
-          const discountB = b.originalPrice - b.price;
-          return discountB - discountA;
-        });
-      }
-      
-      setProducts(filteredProducts);
       setCategoryInfo(categoryData);
+      
+      // Fetch products based on category and filters
+      let productsData = [];
+      
+      // Construct query parameters
+      const params = {
+        sort: sortBy,
+        minPrice: priceRange[0],
+        maxPrice: priceRange[1],
+      };
+      
+      if (selectedColors.length > 0) {
+        params.colors = selectedColors.join(',');
+      }
+      
+      try {
+        let response;
+        
+        if (categoryId) {
+          // If we have a valid category ID, use the category products endpoint
+          response = await categoryService.getCategoryProducts(categoryId, params);
+        } else {
+          // Otherwise, use the general products endpoint with category filter
+          params.category = category;
+          response = await productService.getProducts(params);
+        }
+        
+        if (response.data && response.data.products) {
+          productsData = response.data.products;
+        }
+      } catch (err) {
+        console.error('Error fetching products:', err);
+        // If API fails, try general product search
+        try {
+          const response = await productService.getProducts({ 
+            category: category,
+            ...params
+          });
+          
+          if (response.data && response.data.products) {
+            productsData = response.data.products;
+          }
+        } catch (innerErr) {
+          console.error('Error with fallback product fetch:', innerErr);
+        }
+      }
+      
+      setProducts(productsData);
       setLoading(false);
     } catch (err) {
       console.error('Error fetching products:', err);

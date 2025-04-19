@@ -4,26 +4,56 @@ import { Link } from 'react-router-dom';
 import { HeartIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid';
 import { useCart } from '../../contexts/CartContext';
+import { useWishlist } from '../../contexts/WishlistContext';
 
-const ProductCard = ({ product }) => {
+const ProductCard = ({ product, onClick }) => {
   const { addToCart } = useCart();
-  const [isWishlisted, setIsWishlisted] = useState(false);
-  const [selectedColor, setSelectedColor] = useState(product.colors ? product.colors[0] : null);
+  const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
+  const [selectedColor, setSelectedColor] = useState(
+    product.colors && product.colors.length > 0 ? product.colors[0].value : null
+  );
 
   const toggleWishlist = (e) => {
     e.preventDefault();
-    setIsWishlisted(!isWishlisted);
-    // In a real app, you would call an API to add/remove from wishlist
+    e.stopPropagation();
+    
+    if (isInWishlist(product.id)) {
+      removeFromWishlist(product.id);
+    } else {
+      addToWishlist(product);
+    }
   };
 
+  const handleAddToCart = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    addToCart({
+      ...product,
+      selectedColor,
+      quantity: 1
+    });
+  };
+
+  const handleColorSelect = (e, color) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedColor(color);
+  };
+
+  // Find primary image or use first image or placeholder
+  const productImage = product.images && product.images.length > 0
+    ? (product.images.find(img => img.isPrimary)?.imagePath || product.images[0].imagePath)
+    : (product.image || '/images/product-placeholder.jpg');
+
   return (
-    <div className="group relative">
+    <div className="group relative" onClick={onClick}>
       <Link to={`/product/${product.id}`} className="block">
         <div className="relative overflow-hidden rounded-lg">
           {/* Product Image */}
           <div className="aspect-w-1 aspect-h-1 bg-neutral-100">
             <img
-              src={product.image}
+              src={productImage}
               alt={product.name}
               className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
             />
@@ -48,7 +78,7 @@ const ProductCard = ({ product }) => {
             onClick={toggleWishlist}
             className="absolute top-2 right-2 p-2 bg-white bg-opacity-80 rounded-full shadow-sm hover:bg-opacity-100 transition-colors"
           >
-            {isWishlisted ? (
+            {isInWishlist(product.id) ? (
               <HeartIconSolid className="h-5 w-5 text-accent" />
             ) : (
               <HeartIcon className="h-5 w-5 text-neutral-500" />
@@ -58,14 +88,7 @@ const ProductCard = ({ product }) => {
           {/* Quick Shop - Shows on hover on desktop */}
           <div className="absolute inset-x-0 bottom-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-2">
             <button
-              onClick={(e) => {
-                e.preventDefault();
-                addToCart({
-                  ...product,
-                  selectedColor,
-                  quantity: 1
-                });
-              }}
+              onClick={handleAddToCart}
               className="w-full bg-neutral-900 text-white py-2 rounded hover:bg-neutral-800 transition-colors"
             >
               Add to Cart
@@ -92,15 +115,12 @@ const ProductCard = ({ product }) => {
               {product.colors.slice(0, 4).map((color, index) => (
                 <button
                   key={index}
-                  style={{ backgroundColor: color }}
+                  style={{ backgroundColor: color.value }}
                   className={`w-4 h-4 rounded-full border ${
-                    selectedColor === color ? 'ring-2 ring-neutral-900 ring-offset-1' : 'border-neutral-300'
+                    selectedColor === color.value ? 'ring-2 ring-neutral-900 ring-offset-1' : 'border-neutral-300'
                   }`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setSelectedColor(color);
-                  }}
-                  aria-label={`Select color ${index + 1}`}
+                  onClick={(e) => handleColorSelect(e, color.value)}
+                  aria-label={`Select color ${color.name}`}
                 />
               ))}
               {product.colors.length > 4 && (

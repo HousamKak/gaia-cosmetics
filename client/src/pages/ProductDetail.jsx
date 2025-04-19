@@ -11,6 +11,8 @@ import {
 } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid';
 import { useCart } from '../contexts/CartContext';
+import { useWishlist } from '../contexts/WishlistContext';
+import productService from '../services/product.service';
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -19,85 +21,63 @@ function classNames(...classes) {
 const ProductDetail = () => {
   const { id } = useParams();
   const { addToCart } = useCart();
+  const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedColor, setSelectedColor] = useState(null);
   const [quantity, setQuantity] = useState(1);
-  const [isWishlisted, setIsWishlisted] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
 
   useEffect(() => {
     const fetchProduct = async () => {
       try {
         setLoading(true);
-        // In a real app, this would be an API call
-        // For now, we'll simulate with sample data
+        setError(null);
         
-        // Sample product data
-        const productData = {
-          id: 1,
-          name: 'Plush Warm Beige',
-          category: 'Lipstick',
-          price: 499,
-          originalPrice: 999,
-          discountPercentage: 50,
-          images: [
-            '/images/product-lipstick-beige.jpg',
-            '/images/product-lipstick-beige-2.jpg',
-            '/images/product-lipstick-beige-3.jpg'
-          ],
-          colors: [
-            { name: 'Pink', value: '#FFB6C1' },
-            { name: 'Silver', value: '#D3D3D3' },
-            { name: 'Beige', value: '#DEB887' },
-            { name: 'Coral', value: '#FF7F7F' }
-          ],
-          inventory: {
-            status: 'low',
-            message: 'Only Few Left!'
-          },
-          description: 'A luxurious matte lipstick that delivers intense color payoff with a velvety finish. The ultra-creamy formula keeps lips hydrated all day while providing long-lasting wear.',
-          ingredients: 'Ricinus Communis (Castor) Seed Oil, Caprylic/Capric Triglyceride, Silica, Cetyl Alcohol, Euphorbia Cerifera (Candelilla) Wax, Aluminum Starch Octenylsuccinate, Cetearyl Alcohol, Aluminum Hydroxide, Copernicia Cerifera (Carnauba) Wax, Tocopheryl Acetate, Tocopherol.',
-          howToUse: 'Start by outlining the lips with the pointed tip for precision, then fill in with the flat side of the bullet. For a more defined look, use with a lip liner. Apply a second coat for more intensity.',
-          reviews: {
-            average: 4.5,
-            count: 127,
-            distribution: [
-              { stars: 5, percentage: 72 },
-              { stars: 4, percentage: 18 },
-              { stars: 3, percentage: 6 },
-              { stars: 2, percentage: 3 },
-              { stars: 1, percentage: 1 }
-            ]
+        const response = await productService.getProductById(id);
+        
+        if (response.data) {
+          setProduct(response.data);
+          
+          // Set initial selected color if available
+          if (response.data.colors && response.data.colors.length > 0) {
+            setSelectedColor(response.data.colors[0].value);
           }
-        };
+        }
         
-        setProduct(productData);
-        setSelectedColor(productData.colors[0].value);
         setLoading(false);
       } catch (err) {
+        console.error('Error fetching product:', err);
         setError('Failed to load product. Please try again.');
         setLoading(false);
-        console.error('Error fetching product:', err);
       }
     };
     
-    fetchProduct();
+    if (id) {
+      fetchProduct();
+    }
   }, [id]);
 
   const handleAddToCart = () => {
+    if (!product) return;
+    
     addToCart({
       ...product,
       selectedColor,
       quantity
     });
-    // Show some feedback to the user
+    // Show some feedback to the user (could add a notification here)
   };
 
   const toggleWishlist = () => {
-    setIsWishlisted(!isWishlisted);
-    // In a real app, call an API to update wishlist
+    if (!product) return;
+    
+    if (isInWishlist(product.id)) {
+      removeFromWishlist(product.id);
+    } else {
+      addToWishlist(product);
+    }
   };
 
   if (loading) {
@@ -122,6 +102,9 @@ const ProductDetail = () => {
     );
   }
 
+  // Find primary image or use first image
+  const primaryImage = product.images?.find(img => img.isPrimary) || product.images?.[0];
+  
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -130,7 +113,7 @@ const ProductDetail = () => {
           {/* Main Image */}
           <div className="aspect-w-1 aspect-h-1 md:aspect-h-1.3 bg-neutral-100 rounded-lg overflow-hidden">
             <img
-              src={product.images[0]}
+              src={primaryImage?.imagePath || '/images/product-placeholder.jpg'}
               alt={product.name}
               className="w-full h-full object-cover object-center"
             />
@@ -144,29 +127,31 @@ const ProductDetail = () => {
           </div>
           
           {/* Image Thumbnails */}
-          <div className="hidden md:grid grid-cols-3 gap-4 mt-4">
-            {product.images.map((image, index) => (
-              <button 
-                key={index}
-                className={`aspect-w-1 aspect-h-1 rounded-md overflow-hidden ${
-                  index === 0 ? 'ring-2 ring-neutral-900' : ''
-                }`}
-              >
-                <img
-                  src={image}
-                  alt={`${product.name} - View ${index + 1}`}
-                  className="w-full h-full object-cover object-center"
-                />
-              </button>
-            ))}
-          </div>
+          {product.images && product.images.length > 1 && (
+            <div className="hidden md:grid grid-cols-3 gap-4 mt-4">
+              {product.images.map((image, index) => (
+                <button 
+                  key={index}
+                  className={`aspect-w-1 aspect-h-1 rounded-md overflow-hidden ${
+                    image.isPrimary ? 'ring-2 ring-neutral-900' : ''
+                  }`}
+                >
+                  <img
+                    src={image.imagePath}
+                    alt={`${product.name} - View ${index + 1}`}
+                    className="w-full h-full object-cover object-center"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Try On Button - Only visible on desktop */}
           <div className="hidden md:block mt-6">
-            <button className="flex items-center space-x-2 border border-neutral-300 rounded px-4 py-2 hover:bg-neutral-50">
+            <Link to="/try-on" className="flex items-center space-x-2 border border-neutral-300 rounded px-4 py-2 hover:bg-neutral-50">
               <CameraIcon className="h-5 w-5" />
               <span>Virtual Try On</span>
-            </button>
+            </Link>
           </div>
         </div>
 
@@ -198,27 +183,29 @@ const ProductDetail = () => {
             </div>
             
             {/* Inventory Status */}
-            {product.inventory.status === 'low' && (
-              <p className="mt-2 text-accent font-medium">{product.inventory.message}</p>
+            {product.inventoryStatus === 'low-stock' && (
+              <p className="mt-2 text-accent font-medium">{product.inventoryMessage || 'Only Few Left!'}</p>
             )}
             
             {/* Color Selection */}
-            <div className="mt-6">
-              <h3 className="text-sm font-medium text-neutral-900">Color</h3>
-              <div className="mt-2 flex space-x-3">
-                {product.colors.map((color) => (
-                  <button
-                    key={color.name}
-                    style={{ backgroundColor: color.value }}
-                    className={`w-8 h-8 rounded-full border ${
-                      selectedColor === color.value ? 'ring-2 ring-neutral-900 ring-offset-1' : 'border-neutral-300'
-                    }`}
-                    onClick={() => setSelectedColor(color.value)}
-                    aria-label={`Select color ${color.name}`}
-                  />
-                ))}
+            {product.colors && product.colors.length > 0 && (
+              <div className="mt-6">
+                <h3 className="text-sm font-medium text-neutral-900">Color</h3>
+                <div className="mt-2 flex space-x-3">
+                  {product.colors.map((color) => (
+                    <button
+                      key={color.id}
+                      style={{ backgroundColor: color.value }}
+                      className={`w-8 h-8 rounded-full border ${
+                        selectedColor === color.value ? 'ring-2 ring-neutral-900 ring-offset-1' : 'border-neutral-300'
+                      }`}
+                      onClick={() => setSelectedColor(color.value)}
+                      aria-label={`Select color ${color.name}`}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
             
             {/* Quantity Selector */}
             <div className="mt-6">
@@ -251,12 +238,12 @@ const ProductDetail = () => {
               <button
                 onClick={toggleWishlist}
                 className={`flex items-center justify-center space-x-2 px-4 py-3 border ${
-                  isWishlisted 
+                  isInWishlist(product.id) 
                     ? 'border-accent text-accent' 
                     : 'border-neutral-300 text-neutral-700 hover:border-neutral-400'
                 } rounded-md`}
               >
-                {isWishlisted ? (
+                {isInWishlist(product.id) ? (
                   <HeartIconSolid className="h-5 w-5" />
                 ) : (
                   <HeartIcon className="h-5 w-5" />
@@ -313,12 +300,12 @@ const ProductDetail = () => {
 
             {/* Ingredients Tab */}
             <Tab.Panel className="prose prose-sm max-w-none">
-              <p>{product.ingredients}</p>
+              <p>{product.ingredients || 'Ingredients information not available.'}</p>
             </Tab.Panel>
 
             {/* How to Use Tab */}
             <Tab.Panel className="prose prose-sm max-w-none">
-              <p>{product.howToUse}</p>
+              <p>{product.howToUse || 'Usage information not available.'}</p>
             </Tab.Panel>
 
             {/* Reviews Tab */}
@@ -332,22 +319,28 @@ const ProductDetail = () => {
                         <StarIcon
                           key={star}
                           className={`h-5 w-5 ${
-                            star < Math.floor(product.reviews.average)
+                            star < Math.floor(4.5)
                               ? 'text-yellow-400 fill-current'
-                              : star < product.reviews.average
+                              : star < 4.5
                               ? 'text-yellow-400 fill-current'
                               : 'text-neutral-300'
                           }`}
                         />
                       ))}
                     </div>
-                    <span className="ml-2 font-medium">{product.reviews.average} out of 5</span>
+                    <span className="ml-2 font-medium">4.5 out of 5</span>
                   </div>
-                  <p className="text-sm text-neutral-500 mb-4">{product.reviews.count} customer ratings</p>
+                  <p className="text-sm text-neutral-500 mb-4">127 customer ratings</p>
                   
                   {/* Rating Distribution */}
                   <div className="space-y-2">
-                    {product.reviews.distribution.map((item) => (
+                    {[
+                      { stars: 5, percentage: 72 },
+                      { stars: 4, percentage: 18 },
+                      { stars: 3, percentage: 6 },
+                      { stars: 2, percentage: 3 },
+                      { stars: 1, percentage: 1 }
+                    ].map((item) => (
                       <div key={item.stars} className="flex items-center">
                         <span className="w-12 text-sm">{item.stars} stars</span>
                         <div className="w-full bg-neutral-200 rounded-full h-2 ml-2">
@@ -365,7 +358,7 @@ const ProductDetail = () => {
                 {/* Customer Reviews - Would add actual reviews here */}
                 <div className="md:col-span-2">
                   <h3 className="text-lg font-medium mb-4">Top Customer Reviews</h3>
-                  <p className="text-neutral-500">Showing reviews would go here in a real implementation.</p>
+                  <p className="text-neutral-500">No reviews yet. Be the first to review this product!</p>
                 </div>
               </div>
             </Tab.Panel>

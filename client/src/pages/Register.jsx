@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import authService from '../services/auth.service';
 
 const Register = () => {
   const [name, setName] = useState('');
@@ -10,7 +11,7 @@ const Register = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { register } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -29,17 +30,18 @@ const Register = () => {
       setError('');
       setLoading(true);
       
-      const result = await register(name, email, password);
+      // Call the register API
+      const response = await authService.register({ name, email, password });
       
-      if (result.success) {
-        navigate('/');
-      } else {
-        setError(result.error || 'Failed to create an account');
-        setLoading(false);
-      }
+      // Update auth context with the user data
+      login(response);
+      
+      // Navigate to home page
+      navigate('/');
     } catch (err) {
       console.error('Registration error:', err);
-      setError('Failed to create an account. Please try again.');
+      setError(err.response?.data?.message || 'Failed to create an account. Please try again.');
+    } finally {
       setLoading(false);
     }
   };
