@@ -14,28 +14,42 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const validateUserData = (userData) => {
+    if (!userData) return null;
+
+    if (!userData.role) {
+      console.warn('User data is missing role property. Setting default role.');
+      return {
+        ...userData,
+        role: 'customer'
+      };
+    }
+
+    return userData;
+  };
+
   // Check if user is already logged in (via token in localStorage)
   useEffect(() => {
     const checkAuth = async () => {
       try {
         const token = localStorage.getItem('gaia-auth-token');
-        
+
         if (token) {
           // Configure axios to use the token
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-          
+
           // Get current user data
           const userData = authService.getUserData();
-          
-          // If user data exists, set it
+
+          // If user data exists, validate and set it
           if (userData) {
-            setUser(userData);
+            setUser(validateUserData(userData));
           } else {
             // Attempt to get updated user info from API
             try {
               const response = await authService.getCurrentUser();
               if (response.data) {
-                setUser(response.data);
+                setUser(validateUserData(response.data));
               }
             } catch (err) {
               // If API call fails, clear token
@@ -52,7 +66,7 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
       }
     };
-    
+
     checkAuth();
   }, []);
 

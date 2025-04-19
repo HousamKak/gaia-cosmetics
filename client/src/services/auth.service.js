@@ -6,6 +6,25 @@ import apiService from './api';
  */
 const authService = {
   /**
+   * Validate user data
+   * @param {Object} userData - User data to validate
+   * @returns {Object|null} - Validated user data or null
+   */
+  validateUserData: (userData) => {
+    if (!userData) return null;
+
+    if (!userData.role) {
+      console.warn('User data is missing role property. Setting default role.');
+      return {
+        ...userData,
+        role: 'customer'
+      };
+    }
+
+    return userData;
+  },
+
+  /**
    * Register a new user
    * @param {Object} userData - User registration data
    * @returns {Promise} - API response
@@ -64,8 +83,21 @@ const authService = {
    * Get current user's information
    * @returns {Promise} - API response
    */
-  getCurrentUser: () => {
-    return apiService.get('/auth/me');
+  getCurrentUser: async () => {
+    try {
+      const response = await apiService.get('/auth/me');
+
+      if (response.data) {
+        const validatedUser = authService.validateUserData(response.data);
+        localStorage.setItem('gaia-user-data', JSON.stringify(validatedUser));
+        return { ...response, data: validatedUser };
+      }
+
+      return response;
+    } catch (error) {
+      console.error("Error getting current user:", error);
+      throw error;
+    }
   },
   
   /**
@@ -82,7 +114,7 @@ const authService = {
    */
   getUserData: () => {
     const userData = localStorage.getItem('gaia-user-data');
-    return userData ? JSON.parse(userData) : null;
+    return userData ? authService.validateUserData(JSON.parse(userData)) : null;
   },
   
   /**

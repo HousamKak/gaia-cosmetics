@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotification } from '../../contexts/NotificationContext';
 import {
   HomeIcon,
   ShoppingBagIcon,
@@ -11,31 +12,53 @@ import {
   Cog6ToothIcon,
   ArrowLeftOnRectangleIcon,
   Bars3Icon,
-  XMarkIcon
+  XMarkIcon,
+  TagIcon
 } from '@heroicons/react/24/outline';
 
 const AdminLayout = () => {
   const { user, logout, isAdmin } = useAuth();
+  const { showError } = useNotification();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Check if user is admin
   useEffect(() => {
-    if (!user) {
-      navigate('/login', { state: { from: location } });
-    } else if (!isAdmin()) {
-      navigate('/');
-    }
-  }, [user, isAdmin, navigate, location]);
+    const checkAdmin = async () => {
+      setIsLoading(true);
+      
+      if (!user) {
+        navigate('/login', { state: { from: location } });
+        return;
+      }
+      
+      // Check if the user is an admin
+      const hasAdminAccess = isAdmin();
+      
+      if (!hasAdminAccess) {
+        showError('You do not have permission to access the admin area.');
+        navigate('/');
+        return;
+      }
+      
+      setIsLoading(false);
+    };
+    
+    checkAdmin();
+  }, [user, isAdmin, navigate, location, showError]);
 
+  // Updated navigation items to match available routes
   const navigation = [
     { name: 'Dashboard', href: '/admin', icon: HomeIcon },
     { name: 'Content', href: '/admin/content', icon: PhotoIcon },
     { name: 'Products', href: '/admin/products', icon: ShoppingBagIcon },
+    { name: 'Categories', href: '/admin/categories', icon: TagIcon },
     { name: 'Orders', href: '/admin/orders', icon: ChartBarIcon },
-    { name: 'Users', href: '/admin/users', icon: UserIcon },
-    { name: 'Settings', href: '/admin/settings', icon: Cog6ToothIcon },
+    // Comment out sections that aren't implemented yet
+    // { name: 'Users', href: '/admin/users', icon: UserIcon },
+    // { name: 'Settings', href: '/admin/settings', icon: Cog6ToothIcon },
   ];
 
   const handleLogout = () => {
@@ -43,6 +66,16 @@ const AdminLayout = () => {
     navigate('/login');
   };
 
+  // Show loading state while checking admin access
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Make sure user is logged in and is admin
   if (!user || !isAdmin()) {
     return null;
   }
@@ -85,6 +118,7 @@ const AdminLayout = () => {
                           ? 'bg-neutral-900 text-white'
                           : 'text-neutral-300 hover:bg-neutral-700 hover:text-white'
                       } group flex items-center px-2 py-2 text-base font-medium rounded-md`}
+                      onClick={() => setSidebarOpen(false)}
                     >
                       <item.icon
                         className="mr-3 h-6 w-6 flex-shrink-0"
@@ -122,7 +156,8 @@ const AdminLayout = () => {
                   key={item.name}
                   to={item.href}
                   className={`${
-                    location.pathname === item.href
+                    (location.pathname === item.href || 
+                     (item.href !== '/admin' && location.pathname.startsWith(item.href)))
                       ? 'bg-neutral-900 text-white'
                       : 'text-neutral-300 hover:bg-neutral-700 hover:text-white'
                   } group flex items-center px-2 py-2 text-sm font-medium rounded-md`}
@@ -147,6 +182,7 @@ const AdminLayout = () => {
                   <button
                     onClick={handleLogout}
                     className="p-1 rounded-full text-neutral-300 hover:text-white"
+                    title="Logout"
                   >
                     <ArrowLeftOnRectangleIcon className="h-6 w-6" aria-hidden="true" />
                   </button>
@@ -172,6 +208,7 @@ const AdminLayout = () => {
             <button
               onClick={handleLogout}
               className="p-1 rounded-full text-neutral-500 hover:text-neutral-900"
+              title="Logout"
             >
               <ArrowLeftOnRectangleIcon className="h-6 w-6" aria-hidden="true" />
             </button>

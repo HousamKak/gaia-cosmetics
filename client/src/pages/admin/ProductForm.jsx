@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotification } from '../../contexts/NotificationContext';
-import ImageUploader from '../common/ImageUploader';
+import ImageUploader from '../../components/common/ImageUploader';
 import productService from '../../services/product.service';
 import categoryService from '../../services/category.service';
 
